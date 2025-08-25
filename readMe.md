@@ -4,3 +4,8 @@
 - natural language sql 
 - Fine-tune the llm to eliminate ambiguity and do eda 
 - AI data engineer and scientist 
+
+#Technical details
+- Python + Langchain
+- SQL/MONGODB
+- Nextjs (Streamlit)
