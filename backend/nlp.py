@@ -149,7 +149,7 @@ if __name__ == "__main__":
     
 
    
-    user_question = "Who are the top 3 highest paid employees in Engineering?"
+    user_question = input("Enter your query- ")
 
     
     result = graph.invoke({"question": user_question})
