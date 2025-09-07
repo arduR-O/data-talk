@@ -4,7 +4,7 @@ from tqdm import tqdm
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone 
-from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import PyPDFLoader, PDFMinerLoader
 from pinecone import ServerlessSpec
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -71,7 +71,8 @@ def add_to_db(context_folder_path: str, pdf_files: list[str], vector_store: Pine
     """
     for pdf in tqdm(pdf_files):
         path = os.path.join(context_folder_path, pdf)
-        loader = PyPDFLoader(path)
+        # loader = PyPDFLoader(path)
+        loader = PDFMinerLoader(path)
         docs = loader.load()  # TODO: explore async loading
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
         all_splits = text_splitter.split_documents(docs)
