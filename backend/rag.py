@@ -8,6 +8,7 @@ from typing_extensions import List, TypedDict
 from langchain import hub
 from load_docs import get_vector_store
 
+
 load_dotenv()
 
 if not os.environ.get("GROQ_API_KEY"):
