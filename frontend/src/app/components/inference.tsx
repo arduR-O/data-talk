@@ -160,7 +160,7 @@ export default function Inference() {
 
       {/* Input Area */}
       <div className="border-t border-gray-100 p-6 bg-[#FAF9F6] rounded-b-2xl">
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
           <input
             type="text"
             value={query}
