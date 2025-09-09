@@ -1,33 +1,26 @@
 import os
-from langchain.chains import create_sql_query_chain
 from langchain_community.utilities import SQLDatabase
 from langchain_groq import ChatGroq
-from typing_extensions import TypedDict
+from typing_extensions import TypedDict, Annotated
 from langchain_core.prompts import ChatPromptTemplate
-from typing_extensions import Annotated
 from langchain_community.tools.sql_database.tool import QuerySQLDatabaseTool
 from langgraph.graph import START, StateGraph
 
-
-
-
 from dotenv import load_dotenv
+
 load_dotenv()
 
-# groq llm initiation.
+# --- LLM setup ---
 llm = ChatGroq(
-    model="llama-3.3-70b-versatile",  
+    model="llama-3.3-70b-versatile",
     temperature=0
 )
 
-#db initialisation
+# --- DB setup ---
 db_url = os.getenv("DB_URL")
 db = SQLDatabase.from_uri(db_url)
 
-#inserting appropriate values into the db
-
 def setup_employee_table(db):
-   
     db.run("""
         CREATE TABLE IF NOT EXISTS employee (
             id SERIAL PRIMARY KEY,
@@ -38,11 +31,7 @@ def setup_employee_table(db):
             join_date DATE
         )
     """)
-
-   
     db.run("TRUNCATE TABLE employee RESTART IDENTITY")
-
-   
     employees = [
         ("Alice", "HR", 50000, "alice@example.com", "2021-01-15"),
         ("Bob", "Engineering", 75000, "bob@example.com", "2020-03-10"),
@@ -55,38 +44,28 @@ def setup_employee_table(db):
         ("Ian", "Marketing", 54000, "ian@example.com", "2021-06-11"),
         ("Jane", "Finance", 61000, "jane@example.com", "2020-10-01"),
     ]
-
-    
     for name, dept, salary, email, join_date in employees:
         db.run(f"""
             INSERT INTO employee (name, department, salary, email, join_date)
             VALUES ('{name}', '{dept}', {salary}, '{email}', '{join_date}')
         """)
-
     print("Employee table created and 10 records inserted.")
 
-#creating the state varaible to be passed across langraph.
+# --- LangGraph pipeline setup ---
 class State(TypedDict):
     question: str
     query: str
     result: str
     answer: str
 
-
-#setting up the model 
 system_message = """
 Given an input question, create a syntactically correct {dialect} query to
 run to help find the answer. Unless the user specifies in his question a
 specific number of examples they wish to obtain, always limit your query to
-at most {top_k} results. You can order the results by a relevant column to
-return the most interesting examples in the database.
+at most {top_k} results.
 
-Never query for all the columns from a specific table, only ask for a the
+Never query for all the columns from a specific table, only ask for the
 few relevant columns given the question.
-
-Pay attention to use only the column names that you can see in the schema
-description. Be careful to not query for columns that do not exist. Also,
-pay attention to which column is in which table.
 
 Only use the following tables:
 {table_info}
@@ -99,12 +78,9 @@ query_prompt_template = ChatPromptTemplate(
 )
 
 class QueryOutput(TypedDict):
-    """Generated SQL query."""
-
     query: Annotated[str, ..., "Syntactically valid SQL query."]
 
 def write_query(state: State):
-    """Generate SQL query to fetch information."""
     prompt = query_prompt_template.invoke(
         {
             "dialect": db.dialect,
@@ -117,24 +93,31 @@ def write_query(state: State):
     result = structured_llm.invoke(prompt)
     return {"query": result["query"]}
 
-
 def execute_query(state: State):
-    """Execute SQL query."""
     execute_query_tool = QuerySQLDatabaseTool(db=db)
     return {"result": execute_query_tool.invoke(state["query"])}
 
 def generate_answer(state: State):
-    """Answer question using retrieved information as context."""
-    prompt = (
-        "Given the following user question, corresponding SQL query, "
-        "and SQL result, answer the user question.\n\n"
-        f"Question: {state['question']}\n"
-        f"SQL Query: {state['query']}\n"
-        f"SQL Result: {state['result']}"
+    # Convert history into a dialogue string
+    history_str = "\n".join(
+        f"{msg['role'].capitalize()}: {msg['content']}" for msg in conversation_history
     )
+
+    prompt = (
+    "You are a friendly SQL assistant. "
+    "Answer the user's latest request clearly and naturally, "
+    "using the conversation history and SQL result only to get the right answer. "
+    "Do not repeat the SQL query, the database schema, or the full context—"
+    "just respond conversationally, as if you're chatting.\n\n"
+    f"Conversation so far:\n{history_str}\n\n"
+    f"Latest user request: {state['question']}\n"
+    f"SQL Result: {state['result']}\n\n"
+    "Give only the answer that was asked for, in a helpful tone."
+    )
+
+
     response = llm.invoke(prompt)
     return {"answer": response.content}
-
 
 
 graph_builder = StateGraph(State).add_sequence(
@@ -143,16 +126,30 @@ graph_builder = StateGraph(State).add_sequence(
 graph_builder.add_edge(START, "write_query")
 graph = graph_builder.compile()
 
+# --- Conversational memory ---
+conversation_history = []
 
 
+def ask_database(question: str) -> str:
+    """Ask a natural language question and get an answer from the database."""
+    # Run pipeline
+    result = graph.invoke({"question": question})
+    answer = result["answer"]
+
+    # Track history for context
+    conversation_history.append({"role": "user", "content": question})
+    conversation_history.append({"role": "assistant", "content": answer})
+
+    return answer
+
+# --- Simple loop (no recursive agent) ---
 if __name__ == "__main__":
-    
+    print("Start chatting with your SQL assistant! (type 'exit' to quit)\n")
 
-   
-    user_question = input("Enter your query- ")
+    while True:
+        user_input = input("You: ")
+        if user_input.lower() in ["exit", "quit"]:
+            break
 
-    
-    result = graph.invoke({"question": user_question})
-
-    print("\n--- Final Answer ---")
-    print(result["answer"])
+        answer = ask_database(user_input)
+        print(f"Assistant: {answer}\n")
