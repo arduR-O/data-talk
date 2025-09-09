@@ -1,0 +1,16 @@
+1) Identify a problem: we identified lack of an application that could effectively infer insights from sources in various formats like pdfs and databases. Existing solutions focus on only pdf or csv based data. A need for an application that can handle structured data in form of a database was identified. The application should allow a naive user to get insights from data sources in form of pdfs, databases, csv without having the knowledge of sql, python etc. 
+2) Explore various ways to solve the problem: we explored various ways to approach this problem. Deterministic code-based solution had very limited flexibility and scope so we decided to explore ai based solutions. It was decided to create a agentic ai application that can effeciently retrieve data from various formats, reason on the given context and then return a helpful solution with limited hallucinations. 
+3) Determining the right technological tools: we explored various ways to implement this solution. Finally we decided to use python to implement this solution due it's extensive libraries for AI based applications. We decided to use langchain library for creating agent, fast API for backend, and NextJS for frontend <insert benefits of these choices over other others>
+4) Determining the way to use LLM: cloud based llm was preferred over a local-llm due to it's capability of running on low-end systems, scalability <insert other benefits>. Groq was selected as the cloud provider of choice due it's lenient free tier limits, wide array of llm options and quick inference time
+5) Choice of LLM models: through experimentation qwen3-32b was found to be most suited for the agentic workflow
+6) Choice of vector db: pinecone was chosen for it's liberal free tier (insert other benefits over other options)
+7) Create a RAG for pdfs (insert other microsteps based on code)
+8) Create a NLP2SQL solution (insert other microsteps based on code)
+9) Create a frontend (make sure it has error handling, is responsive and other microsteps)
+10) Explore ways to optimize RAG performance using better retrival agents 
+11) Create a combined workflow to handle both RAG thing and NLP2SQL thing
+12) Extend support for major database providers
+13) Add guard-rails to the system to prevent accidental data-loss, misuse etc.
+14) Explore the feasibility of fine-tuning a model to see if it can be used to find new relations and insights from a given data on it's own without any prompts from the user. Implement if feasible.
+15) Add Authentication, multiple conversation, conversation history
+16) Deploy the application on cloud 

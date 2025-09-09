@@ -1,5 +1,5 @@
 # TODO: add feature track splits of each doc and delete it from db when that doc is removed  
-# TODO: add chat history
+
 import os 
 from dotenv import load_dotenv
 from tqdm import tqdm

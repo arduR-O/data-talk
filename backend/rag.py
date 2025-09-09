@@ -1,11 +1,9 @@
+# TODO: add chat history
+
 import getpass
 from dotenv import load_dotenv
 import os
 from langchain_groq import ChatGroq
-from langchain_core.documents import Document
-from langgraph.graph import START, StateGraph, MessagesState
-from typing_extensions import List, TypedDict
-from langchain import hub
 from load_docs import get_vector_store
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver 
@@ -18,7 +16,7 @@ if not os.environ.get("GROQ_API_KEY"):
   os.environ["GROQ_API_KEY"] = getpass.getpass("Enter API key for Groq: ")
   
 llm = ChatGroq(
-    model="llama-3.3-70b-versatile"
+    model="qwen/qwen3-32b"
 )
 
 # prompt = hub.pull("rlm/rag-prompt")
@@ -53,13 +51,15 @@ memory = MemorySaver()
 agent_executor = create_react_agent(llm, [retrieve, contextDetails], checkpointer=memory)
 # graph = graph_builder.compile(checkpointer=memory)
 
-config = {"configurable": {"thread_id": "abc123"}}
+config = {"configurable": {"thread_id": "abc12"}}
 
 # input_message = "Kindly return a list of all the chapters covered in the textbook"
-input_message = "generate a 10 question quiz on the first chapter of the book and then find their answers"
+input_message = "what were my last 2 queries?"
+
 
 for event in agent_executor.stream(
-    {"messages": [{"role":"system", "content": prompt},{"role": "user", "content": input_message}]},
+    # {"messages": [{"role":"system", "content": prompt},{"role": "user", "content": input_message}]},
+    {"messages": [{"role": "user", "content": input_message}]},
     stream_mode="values",
     config=config,
 ):
