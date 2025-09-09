@@ -1,5 +1,5 @@
-# !TODO: add feature track splits of each doc and delete it from db when that doc is removed  
-
+# TODO: add feature track splits of each doc and delete it from db when that doc is removed  
+# TODO: add chat history
 import os 
 from dotenv import load_dotenv
 from tqdm import tqdm
@@ -9,6 +9,7 @@ from pinecone import Pinecone
 from langchain_community.document_loaders import PyPDFLoader, PDFMinerLoader
 from pinecone import ServerlessSpec
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+import getpass
 
 
 load_dotenv()
