@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import axios from "axios";
 
 export default function Inference() {
   const [query, setQuery] = useState('');
@@ -12,28 +13,43 @@ export default function Inference() {
     }
   ]);
   const [isClient, setIsClient] = useState(false);
+ 
+  // Only send to backend when user submits, not on every keystroke
 
   React.useEffect(() => {
     setIsClient(true);
   }, []);
 
-  const handleSendQuery = () => {
+  const handleSendQuery = async () => {
     if (!query.trim()) return;
     
-    const newQuery = {
+    const userMessage = {
       type: 'user',
       content: query,
       timestamp: new Date().toLocaleTimeString()
     };
-    
-    const aiResponse = {
-      type: 'assistant',
-      content: `I understand you're asking about "${query}". Based on your uploaded documents and connected data sources, I can provide detailed analysis and insights. This demonstrates the AI's capability to understand context and provide relevant, well-researched responses tailored to your specific query.`,
-      timestamp: new Date().toLocaleTimeString()
-    };
-    
-    setResponses([...responses, newQuery, aiResponse]);
+    // Optimistically append user message
+    setResponses(prev => [...prev, userMessage]);
+    const currentQuery = query;
     setQuery('');
+    try {
+      const response: any = await axios.post('http://localhost:8000/', {
+        question: currentQuery,
+      });
+      const aiResponse = {
+        type: 'assistant',
+        content: response?.data?.response ?? 'Sorry, I could not generate a response.',
+        timestamp: new Date().toLocaleTimeString()
+      };
+      setResponses(prev => [...prev, aiResponse]);
+    } catch (error: any) {
+      const errorMessage = {
+        type: 'assistant',
+        content: 'There was an error contacting the server. Please try again.',
+        timestamp: new Date().toLocaleTimeString()
+      };
+      setResponses(prev => [...prev, errorMessage]);
+    }
   };
 
   return (
@@ -146,7 +162,34 @@ export default function Inference() {
                     ? 'bg-amber-50 border border-amber-200 text-amber-800'
                     : 'bg-white border border-gray-200 text-gray-900 shadow-sm'
                 }`}>
-                  <p className="text-sm leading-relaxed">{message.content}</p>
+                  {(() => {
+                    // Extract <think>...</think> content from assistant messages
+                    const extractThink = (text: string) => {
+                      if (!text) return { visible: '', think: '' };
+                      const regex = /<think>[\s\S]*?<\/think>/g;
+                      const thinks = text.match(regex) || [];
+                      const thinkText = thinks
+                        .map(t => t.replace(/<\/?think>/g, '').trim())
+                        .filter(Boolean)
+                        .join('\n\n');
+                      const visible = text.replace(regex, '').trim();
+                      return { visible, think: thinkText };
+                    };
+                    const parsed = message.type === 'assistant' ? extractThink(message.content as any) : { visible: message.content, think: '' };
+                    return (
+                      <>
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{parsed.visible}</p>
+                        {parsed.think && message.type === 'assistant' && (
+                          <details className="mt-2">
+                            <summary className="text-xs cursor-pointer select-none text-gray-500">Reasoning</summary>
+                            <div className="mt-1 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-2 whitespace-pre-wrap">
+                              {parsed.think}
+                            </div>
+                          </details>
+                        )}
+                      </>
+                    );
+                  })()}
                   {isClient && <p className={`text-xs mt-2 ${
                     message.type === 'user' 
                       ? 'text-blue-100' 
@@ -170,7 +213,7 @@ export default function Inference() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSendQuery()}
+            onKeyDown={(e) => e.key === 'Enter' && handleSendQuery()}
             placeholder="Ask a question about your documents..."
             className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white text-gray-900 placeholder-gray-500 hover:border-gray-300 transition-colors"
           />
