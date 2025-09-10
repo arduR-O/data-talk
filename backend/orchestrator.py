@@ -3,9 +3,9 @@ import getpass
 import os
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
-from rag import graph as rag_graph
-from nlp import ask_database, conversation_history as sql_history
-
+from rag import ask_rag
+from nlp import ask_database
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, AIMessage, ToolMessage
 load_dotenv()
 
 # --- Groq API key setup ---
@@ -48,20 +48,19 @@ def chat(question: str) -> str:
     and returns a conversational answer.
     """
     # Track user input
-    orchestrator_history.append({"role": "user", "content": question})
+    orchestrator_history.append(HumanMessage(question))
 
     # Decide which pipeline
     pipeline = decide_pipeline(question)
 
     if pipeline == "sql":
-        answer = ask_database(question)
+        answer = ask_database(question, orchestrator_history)
     else:
         # RAG pipeline (simplified, no config/memory)
-        result = rag_graph.invoke({"question": question})
-        answer = result["answer"]
+        answer = ask_rag(question, orchestrator_history)
 
     # Track assistant response
-    orchestrator_history.append({"role": "assistant", "content": answer})
+    orchestrator_history.append(AIMessage(answer))
 
     return answer
 

@@ -5,6 +5,7 @@ from typing_extensions import TypedDict, Annotated
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.tools.sql_database.tool import QuerySQLDatabaseTool
 from langgraph.graph import START, StateGraph
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage, BaseMessage
 
 from dotenv import load_dotenv
 
@@ -57,6 +58,7 @@ class State(TypedDict):
     query: str
     result: str
     answer: str
+    conversation_history: list[BaseMessage]
 
 system_message = """
 Given an input question, create a syntactically correct {dialect} query to
@@ -99,9 +101,6 @@ def execute_query(state: State):
 
 def generate_answer(state: State):
     # Convert history into a dialogue string
-    history_str = "\n".join(
-        f"{msg['role'].capitalize()}: {msg['content']}" for msg in conversation_history
-    )
 
     prompt = (
     "You are a friendly SQL assistant. "
@@ -109,7 +108,7 @@ def generate_answer(state: State):
     "using the conversation history and SQL result only to get the right answer. "
     "Do not repeat the SQL query, the database schema, or the full context—"
     "just respond conversationally, as if you're chatting.\n\n"
-    f"Conversation so far:\n{history_str}\n\n"
+    f"Conversation so far:\n{state['conversation_history']}\n\n"
     f"Latest user request: {state['question']}\n"
     f"SQL Result: {state['result']}\n\n"
     "Give only the answer that was asked for, in a helpful tone."
@@ -126,19 +125,21 @@ graph_builder = StateGraph(State).add_sequence(
 graph_builder.add_edge(START, "write_query")
 graph = graph_builder.compile()
 
-# --- Conversational memory ---
-conversation_history = []
-
-
-def ask_database(question: str) -> str:
+def ask_database(question: str, conversation_history : list[BaseMessage] ) -> str:
     """Ask a natural language question and get an answer from the database."""
     # Run pipeline
-    result = graph.invoke({"question": question})
+    # history_str = "\n".join(
+    #     f"{msg['role'].capitalize()}: {msg['content']}" for msg in conversation_history
+    # )
+    initial_state = State(conversation_history = conversation_history, question= question)
+    result = graph.invoke(initial_state)
     answer = result["answer"]
 
     # Track history for context
-    conversation_history.append({"role": "user", "content": question})
-    conversation_history.append({"role": "assistant", "content": answer})
+    # conversation_history.append({"role": "user", "content": question})
+    # conversation_history.append({"role": "assistant", "content": answer})
+    conversation_history.append(HumanMessage(question))
+    conversation_history.append(AIMessage(answer))
 
     return answer
 
