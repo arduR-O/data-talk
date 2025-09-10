@@ -11,6 +11,11 @@ export default function Inference() {
       timestamp: new Date().toLocaleTimeString()
     }
   ]);
+  const [isClient, setIsClient] = useState(false);
+
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleSendQuery = () => {
     if (!query.trim()) return;
@@ -142,7 +147,7 @@ export default function Inference() {
                     : 'bg-white border border-gray-200 text-gray-900 shadow-sm'
                 }`}>
                   <p className="text-sm leading-relaxed">{message.content}</p>
-                  <p className={`text-xs mt-2 ${
+                  {isClient && <p className={`text-xs mt-2 ${
                     message.type === 'user' 
                       ? 'text-blue-100' 
                       : message.type === 'system'
@@ -150,7 +155,7 @@ export default function Inference() {
                       : 'text-gray-500'
                   }`}>
                     {message.timestamp}
-                  </p>
+                  </p>}
                 </div>
               </div>
             </div>
