@@ -5,7 +5,7 @@ export default function UploadCard() {
   const [dbUrl, setDbUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   
-  // Initialize with proper typing by providing initial values
+  
   const [uploadedFiles, setUploadedFiles] = useState([
     // Empty array with proper type inference from initial dummy object
   ].filter(() => false) as Array<{

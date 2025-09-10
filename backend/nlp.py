@@ -142,14 +142,4 @@ def ask_database(question: str) -> str:
 
     return answer
 
-# --- Simple loop (no recursive agent) ---
-if __name__ == "__main__":
-    print("Start chatting with your SQL assistant! (type 'exit' to quit)\n")
 
-    while True:
-        user_input = input("You: ")
-        if user_input.lower() in ["exit", "quit"]:
-            break
-
-        answer = ask_database(user_input)
-        print(f"Assistant: {answer}\n")
