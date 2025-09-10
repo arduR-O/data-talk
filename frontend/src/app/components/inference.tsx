@@ -20,6 +20,22 @@ export default function Inference() {
     setIsClient(true);
   }, []);
 
+  // Minimal markdown formatter: supports **bold** and escapes HTML
+  const renderMarkdownToHtml = (text: string) => {
+    if (!text) return '';
+    const escapeHtml = (s: string) =>
+      s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    const escaped = escapeHtml(text);
+    // Convert **bold** to <strong>
+    const withBold = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    return withBold;
+  };
+
   const handleSendQuery = async () => {
     if (!query.trim()) return;
     
@@ -178,7 +194,14 @@ export default function Inference() {
                     const parsed = message.type === 'assistant' ? extractThink(message.content as any) : { visible: message.content, think: '' };
                     return (
                       <>
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{parsed.visible}</p>
+                        {message.type === 'assistant' ? (
+                          <div
+                            className="text-sm leading-relaxed whitespace-pre-wrap"
+                            dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(parsed.visible) }}
+                          />
+                        ) : (
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap">{parsed.visible}</p>
+                        )}
                         {parsed.think && message.type === 'assistant' && (
                           <details className="mt-2">
                             <summary className="text-xs cursor-pointer select-none text-gray-500">Reasoning</summary>
