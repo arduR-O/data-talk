@@ -1,12 +1,124 @@
 "use client"
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Inference from "./components/inference";
 import UploadCard from "./components/Upload";
 
+interface User {
+  firstName: string;
+  lastName: string;
+  email: string;
+  user_id: string;
+}
 
 export default function Home() {
+  const [user, setUser] = useState<User | null>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    // Check if user is logged in
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      try {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        // Clear invalid data
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+      }
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
+    setUser(null);
+    setIsDropdownOpen(false);
+    router.push('/login');
+  };
+
   return (
     <main className="bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 min-h-screen flex flex-col items-center py-8 sm:py-12 px-4 sm:px-8 md:px-16 relative overflow-hidden">
       
+      {/* User Dropdown Menu */}
+      <div className="absolute top-6 right-6 z-50">
+        {user ? (
+          <div className="relative">
+            <button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="flex items-center gap-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-4 py-2 hover:bg-white/15 transition-all duration-300"
+            >
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <span className="text-white text-sm font-medium hidden sm:block">
+                {user.firstName} {user.lastName}
+              </span>
+              <svg 
+                className={`w-4 h-4 text-white transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`}
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {/* Dropdown Menu */}
+            {isDropdownOpen && (
+              <div className="absolute top-full right-0 mt-2 w-48 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl overflow-hidden">
+                <div className="p-4 border-b border-white/10">
+                  <p className="text-white font-medium text-sm">{user.firstName} {user.lastName}</p>
+                  <p className="text-gray-300 text-xs truncate">{user.email}</p>
+                </div>
+                
+                <div className="p-2">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-red-300 hover:bg-red-500/20 rounded-xl transition-all duration-300 text-sm font-medium"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex gap-3">
+            <button
+              onClick={() => router.push('/login')}
+              className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-4 py-2 rounded-2xl hover:bg-white/15 transition-all duration-300 text-sm font-medium"
+            >
+              Login
+            </button>
+            <button
+              onClick={() => router.push('/signup')}
+              className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-2 rounded-2xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 text-sm font-medium"
+            >
+              Sign Up
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Close dropdown when clicking outside */}
+      {isDropdownOpen && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setIsDropdownOpen(false)}
+        />
+      )}
+
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>

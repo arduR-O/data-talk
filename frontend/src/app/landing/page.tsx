@@ -89,7 +89,7 @@ export default function LandingPage() {
           </Link>
         </motion.div>
 
-        {/* Trust indicators */}
+       
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -105,7 +105,7 @@ export default function LandingPage() {
         </motion.div>
       </div>
 
-      {/* Floating particles */}
+     
       <div className="absolute inset-0 pointer-events-none">
         {[...Array(20)].map((_, i) => (
           <motion.div
