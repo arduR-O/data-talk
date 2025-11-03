@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.auth_routes import router as auth_router
+from routes.chat_routes import router as chat_router
 
-# Create FastAPI app
 app = FastAPI(
     title="DataTalk API",
-    description="Authentication API for DataTalk - AI Research Assistant",
+    description="Complete API for DataTalk - Authentication and AI Chat",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
@@ -16,16 +16,16 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "http://localhost:3001",
         "http://127.0.0.1:3000"
-    ],  # Your Next.js frontend URLs
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include routers
+# Include all routers
 app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(chat_router, prefix="/api", tags=["Chat"])
 
 @app.get("/")
 async def root():
@@ -39,8 +39,10 @@ async def root():
 async def health_check():
     return {
         "status": "healthy", 
-        "service": "DataTalk Auth API",
-        "timestamp": "2024-01-01T00:00:00Z"  # You can make this dynamic
+        "services": {
+            "authentication": "operational",
+            "chat": "operational"
+        }
     }
 
 @app.get("/api/status")
@@ -52,6 +54,9 @@ async def api_status():
                 "signup": "POST /api/auth/signup",
                 "login": "POST /api/auth/login", 
                 "verify": "GET /api/auth/verify"
+            },
+            "chat": {
+                "chat": "POST /api/chat"
             }
         }
     }
@@ -62,5 +67,5 @@ if __name__ == "__main__":
         "main:app",
         host="0.0.0.0", 
         port=8000,
-        reload=True  # Auto-reload during development
+        reload=True
     )
