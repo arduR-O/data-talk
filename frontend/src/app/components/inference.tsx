@@ -13,8 +13,6 @@ export default function Inference() {
     }
   ]);
   const [isClient, setIsClient] = useState(false);
- 
-  // Only send to backend when user submits, not on every keystroke
 
   React.useEffect(() => {
     setIsClient(true);
@@ -31,8 +29,8 @@ export default function Inference() {
         .replace(/\"/g, "&quot;")
         .replace(/'/g, "&#39;");
     const escaped = escapeHtml(text);
-    // Convert **bold** to <strong>
-    const withBold = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+   
+    const withBold = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold">$1</strong>');
     return withBold;
   };
 
@@ -69,114 +67,63 @@ export default function Inference() {
   };
 
   return (
-    <div className="bg-[#FAF9F6] rounded-2xl shadow-lg border border-gray-200 w-full max-w-4xl mx-auto flex flex-col h-[600px]">
-      <style jsx>{`
-        .chat-icon {
-          width: 16px;
-          height: 16px;
-          background: currentColor;
-          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a9.863 9.863 0 01-4.906-1.298L3 21l2.298-5.094A9.863 9.863 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z' /%3E%3C/svg%3E") no-repeat;
-          mask-size: contain;
-        }
-        
-        .user-icon {
-          width: 16px;
-          height: 16px;
-          background: currentColor;
-          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' /%3E%3C/svg%3E") no-repeat;
-          mask-size: contain;
-        }
-        
-        .sparkles-icon {
-          width: 16px;
-          height: 16px;
-          background: currentColor;
-          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M5 3l1.5 1.5L5 6 3.5 4.5 5 3zM12 12l1.5-1.5L12 9l-1.5 1.5L12 12zM19 21l-1.5-1.5L19 18l1.5 1.5L19 21zM3 12l1.5-1.5L3 9l-1.5 1.5L3 12z' /%3E%3C/svg%3E") no-repeat;
-          mask-size: contain;
-        }
-        
-        .bot-icon {
-          width: 16px;
-          height: 16px;
-          background: currentColor;
-          border-radius: 2px;
-          position: relative;
-        }
-        
-        .bot-icon::before {
-          content: '';
-          position: absolute;
-          width: 6px;
-          height: 6px;
-          background: currentColor;
-          border-radius: 50%;
-          top: 3px;
-          left: 2px;
-        }
-        
-        .bot-icon::after {
-          content: '';
-          position: absolute;
-          width: 6px;
-          height: 6px;
-          background: currentColor;
-          border-radius: 50%;
-          top: 3px;
-          right: 2px;
-        }
-        
-        .send-icon {
-          width: 16px;
-          height: 16px;
-          background: currentColor;
-          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 19l9 2-9-18-9 18 9-2zm0 0v-8' /%3E%3C/svg%3E") no-repeat;
-          mask-size: contain;
-        }
-      `}</style>
-
+    <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-3xl shadow-2xl border border-slate-200/60 w-full max-w-4xl mx-auto flex flex-col h-[700px] backdrop-blur-sm">
       {/* Header */}
-      <div className="border-b border-gray-100 px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <div className="chat-icon text-white"></div>
+      <div className="border-b border-slate-200/60 px-8 py-6 bg-white/80 backdrop-blur-sm rounded-t-3xl">
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center shadow-lg">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+            </div>
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white shadow-sm"></div>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">AI Research Assistant</h2>
-            <p className="text-sm text-gray-500">Intelligent conversation with your documents</p>
+          <div className="flex-1">
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+              AI Research Assistant
+            </h2>
+            <p className="text-slate-500 text-sm font-medium">Intelligent conversation with your documents</p>
           </div>
         </div>
       </div>
 
       {/* Chat Messages Area */}
-      <div className="flex-1 p-6 overflow-y-auto bg-[#FAF9F6]">
-        <div className="space-y-4">
+      <div className="flex-1 p-8 overflow-y-auto bg-gradient-to-b from-white/50 to-blue-50/30">
+        <div className="space-y-6 max-w-4xl mx-auto">
           {responses.map((message, index) => (
             <div key={index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] flex gap-3 ${message.type === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+              <div className={`max-w-[85%] flex gap-4 ${message.type === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                 {/* Avatar */}
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg ${
                   message.type === 'user' 
-                    ? 'bg-blue-600' 
+                    ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
                     : message.type === 'system'
-                    ? 'bg-amber-500'
-                    : 'bg-gray-700'
+                    ? 'bg-gradient-to-br from-amber-400 to-orange-500'
+                    : 'bg-gradient-to-br from-slate-600 to-slate-700'
                 }`}>
                   {message.type === 'user' ? (
-                    <div className="user-icon text-white"></div>
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
                   ) : message.type === 'system' ? (
-                    <div className="sparkles-icon text-white"></div>
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
                   ) : (
-                    <div className="bot-icon text-white"></div>
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
                   )}
                 </div>
                 
                 {/* Message Content */}
-                <div className={`rounded-2xl px-4 py-3 ${
+                <div className={`rounded-3xl px-6 py-4 backdrop-blur-sm shadow-lg ${
                   message.type === 'user' 
-                    ? 'bg-blue-600 text-white' 
+                    ? 'bg-gradient-to-br from-blue-500 to-purple-500 text-white' 
                     : message.type === 'system'
-                    ? 'bg-amber-50 border border-amber-200 text-amber-800'
-                    : 'bg-white border border-gray-200 text-gray-900 shadow-sm'
+                    ? 'bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 text-amber-800'
+                    : 'bg-white/90 border border-slate-200/60 text-slate-800'
                 }`}>
                   {(() => {
                     // Extract <think>...</think> content from assistant messages
@@ -196,16 +143,18 @@ export default function Inference() {
                       <>
                         {message.type === 'assistant' ? (
                           <div
-                            className="text-sm leading-relaxed whitespace-pre-wrap"
+                            className="text-sm leading-relaxed whitespace-pre-wrap space-y-2"
                             dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(parsed.visible) }}
                           />
                         ) : (
                           <p className="text-sm leading-relaxed whitespace-pre-wrap">{parsed.visible}</p>
                         )}
                         {parsed.think && message.type === 'assistant' && (
-                          <details className="mt-2">
-                            <summary className="text-xs cursor-pointer select-none text-gray-500">Reasoning</summary>
-                            <div className="mt-1 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-2 whitespace-pre-wrap">
+                          <details className="mt-3 group">
+                            <summary className="text-xs cursor-pointer select-none text-slate-500 hover:text-slate-700 transition-colors font-medium">
+                              🤔 View Reasoning
+                            </summary>
+                            <div className="mt-2 text-xs text-slate-600 bg-slate-50/80 border border-slate-200 rounded-xl p-3 whitespace-pre-wrap backdrop-blur-sm">
                               {parsed.think}
                             </div>
                           </details>
@@ -213,12 +162,12 @@ export default function Inference() {
                       </>
                     );
                   })()}
-                  {isClient && <p className={`text-xs mt-2 ${
+                  {isClient && <p className={`text-xs mt-3 font-medium ${
                     message.type === 'user' 
                       ? 'text-blue-100' 
                       : message.type === 'system'
                       ? 'text-amber-600'
-                      : 'text-gray-500'
+                      : 'text-slate-500'
                   }`}>
                     {message.timestamp}
                   </p>}
@@ -230,27 +179,34 @@ export default function Inference() {
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-gray-100 p-6 bg-[#FAF9F6] rounded-b-2xl">
-        <div className="flex gap-3 flex-wrap">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSendQuery()}
-            placeholder="Ask a question about your documents..."
-            className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white text-gray-900 placeholder-gray-500 hover:border-gray-300 transition-colors"
-          />
+      <div className="border-t border-slate-200/60 p-8 bg-white/60 backdrop-blur-sm rounded-b-3xl">
+        <div className="flex gap-4 flex-wrap">
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSendQuery()}
+              placeholder="Ask a question about your documents..."
+              className="w-full px-6 py-4 border border-slate-300/80 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white/90 text-slate-900 placeholder-slate-500 hover:border-slate-400 transition-all duration-300 shadow-lg backdrop-blur-sm pr-12"
+            />
+            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm">
+              ⏎ Enter
+            </div>
+          </div>
           <button
             onClick={handleSendQuery}
             disabled={!query.trim()}
-            className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 font-medium shadow-sm hover:shadow-md"
+            className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-8 py-4 rounded-2xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 disabled:from-slate-300 disabled:to-slate-400 disabled:cursor-not-allowed flex items-center gap-3 font-semibold shadow-lg hover:shadow-xl disabled:shadow-md min-w-[120px] justify-center"
           >
-            <div className="send-icon"></div>
-            Send
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+            </svg>
+            <span>Send</span>
           </button>
         </div>
-        <p className="text-xs text-gray-500 mt-3 text-center">
-          Responses are generated based on your uploaded documents and data sources
+        <p className="text-xs text-slate-500 mt-4 text-center font-medium">
+          💡 Responses are generated based on your uploaded documents and data sources
         </p>
       </div>
     </div>
