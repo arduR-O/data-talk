@@ -1,5 +1,5 @@
 # TODO: add feature track splits of each doc and delete it from db when that doc is removed  
-
+# ! DOC names must be unique
 import os 
 from dotenv import load_dotenv
 from tqdm import tqdm
@@ -19,8 +19,11 @@ if not os.environ.get("PINECONE_API_KEY"):
   
 if not os.environ.get("GOOGLE_API_KEY"):
   os.environ["GOOGLE_API_KEY"] = getpass.getpass("Enter API key for NVIDIA: ")
-  
 
+if not os.environ.get("DOCS_DB_URL"):
+    os.environ["DOCS_DB_URL"] = getpass.getpass("Enter the url to neon db required for maintaining context docs")
+
+  
 def obtain_pdfs(context_folder_path : str):
     """
     Returns a list of PDF filenames from the specified context folder path.
@@ -38,6 +41,26 @@ def obtain_pdfs(context_folder_path : str):
             pdfs.append(file)
     print("pdf files: ", pdfs)
     return pdfs
+
+def get_meta_data(complete_path_to_pdf : str):
+    loader = PDFMinerLoader(path, mode = "page")
+    first_few_pages = ""
+    page_number = 0
+    for doc in loader.lazy_load():
+        page_number+=1
+        first_few_pages += doc.page_content
+        if(page_number==30):
+            break
+    
+        
+def initialize_pdfs(context_folder_path: str, list_of_pdfs: list[str]):
+    """Intializes documents in context in a database with their metadata and name as ID"""
+    for pdf in list_of_pdfs:
+        path = os.path.join(context_folder_path, pdf)
+        meta_data = get_meta_data(path)
+        
+        
+    
 
 def init_pc_vector_store(index_name: str, embeddings: GoogleGenerativeAIEmbeddings) -> PineconeVectorStore:
     """
@@ -100,6 +123,7 @@ def get_vector_store(index_name: str = "data-talk", model: str = "models/gemini-
 if __name__ == "__main__":
     context_path: str = "./context"
     pdfs: list[str] = obtain_pdfs(context_path)
-    vector_store: PineconeVectorStore = get_vector_store()
-    add_to_db(context_path, pdfs, vector_store)
+    # vector_store: PineconeVectorStore = get_vector_store()
+    # add_to_db(context_path, pdfs, vector_store)
+    initialize_pdfs(context_path, pdfs)
 
