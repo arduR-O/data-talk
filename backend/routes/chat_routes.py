@@ -1,40 +1,33 @@
-from typing import Annotated, Union, List
+from fastapi import APIRouter, HTTPException, Header
+from controllers.chat_controller import ChatController
+from schemas.chat_schemas import ChatRequest, ChatResponse
+from typing import List
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from pathlib import Path
-import os
-from pydantic import BaseModel
-from orchestrator import chat
-import uvicorn
-from fastapi.middleware.cors import CORSMiddleware 
 from controllers.auth_controller import AuthController
 
 app = FastAPI()
 auth_controller = AuthController()
 
-origins = [
-    "http://localhost.tiangolo.com",
-    "https://localhost.tiangolo.com",
-    "http://localhost",
-    "http://localhost:8080",
-    "http://localhost:3000"
-]
+router = APIRouter()
+chat_controller = ChatController()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+@router.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(chat_request: ChatRequest):
+    """Chat endpoint for AI responses"""
+    result = chat_controller.process_message(chat_request.question)
+    
+    if result['success']:
+        return {
+            "response": result['data']['response']
+        }
+    else:
+        raise HTTPException(
+            status_code=result['status_code'],
+            detail=result['message']
+        )
 
-class Question(BaseModel):
-    question :str 
-
-@app.post("/")
-def read_root(question : Question):
-    return {"response" : chat(question.question)}
-
-@app.post("/uploadfiles/")
+@router.post("/uploadfiles/")
 async def create_upload_files(authorization: str = Header(...), files: List[UploadFile] = File(...)):
     """Save uploaded files into uploads/<user_id>/ directory.
 
@@ -77,6 +70,3 @@ async def create_upload_files(authorization: str = Header(...), files: List[Uplo
         saved.append(str(dest_path))
 
     return {"saved": saved}
-
-if __name__ == "__main__":
-    uvicorn.run("controller:app", port=8000, log_level="info")

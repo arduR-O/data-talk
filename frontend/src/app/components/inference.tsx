@@ -35,36 +35,42 @@ export default function Inference() {
   };
 
   const handleSendQuery = async () => {
-    if (!query.trim()) return;
+  if (!query.trim()) return;
+  
+  const userMessage = {
+    type: 'user',
+    content: query,
+    timestamp: new Date().toLocaleTimeString()
+  };
+  
+  setResponses(prev => [...prev, userMessage]);
+  const currentQuery = query;
+  setQuery('');
+  // setIsLoading(true);
+
+  try {
+    const response = await axios.post('http://localhost:8000/api/chat', {
+      question: currentQuery,
+    });
     
-    const userMessage = {
-      type: 'user',
-      content: query,
+    const aiResponse = {
+      type: 'assistant',
+      content: response.data.response,
       timestamp: new Date().toLocaleTimeString()
     };
-    // Optimistically append user message
-    setResponses(prev => [...prev, userMessage]);
-    const currentQuery = query;
-    setQuery('');
-    try {
-      const response: any = await axios.post('http://localhost:8000/', {
-        question: currentQuery,
-      });
-      const aiResponse = {
-        type: 'assistant',
-        content: response?.data?.response ?? 'Sorry, I could not generate a response.',
-        timestamp: new Date().toLocaleTimeString()
-      };
-      setResponses(prev => [...prev, aiResponse]);
-    } catch (error: any) {
-      const errorMessage = {
-        type: 'assistant',
-        content: 'There was an error contacting the server. Please try again.',
-        timestamp: new Date().toLocaleTimeString()
-      };
-      setResponses(prev => [...prev, errorMessage]);
-    }
-  };
+    setResponses(prev => [...prev, aiResponse]);
+    
+  } catch (error: any) {
+    const errorMessage = {
+      type: 'assistant',
+      content: 'There was an error processing your request. Please try again.',
+      timestamp: new Date().toLocaleTimeString()
+    };
+    setResponses(prev => [...prev, errorMessage]);
+  } finally {
+    // setIsLoading(false);
+  }
+};
 
   return (
     <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-3xl shadow-2xl border border-slate-200/60 w-full max-w-4xl mx-auto flex flex-col h-[700px] backdrop-blur-sm">
