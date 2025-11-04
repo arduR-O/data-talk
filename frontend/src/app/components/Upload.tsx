@@ -468,18 +468,7 @@ export default function UploadCard() {
             />
           </div>
           
-          <div className="relative">
-            <svg className="w-5 h-5 text-slate-400 absolute left-4 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-            </svg>
-            <input
-              type="password"
-              placeholder="API Key (Optional)"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="text-slate-800 w-full pl-12 pr-4 py-4 border border-slate-300/80 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white/80 backdrop-blur-sm placeholder-slate-500 hover:border-slate-400 transition-all duration-300 shadow-sm"
-            />
-          </div>
+         
           
           {/* Error Message */}
           {connectionError && (
