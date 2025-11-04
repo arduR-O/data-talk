@@ -377,27 +377,8 @@ export default function UploadCard() {
           className="hidden"
         />
         
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept=".pdf,.doc,.docx,.txt"
-          onChange={handleFileInputChange}
-          className="hidden"
-        />
-        
         {/* Upload Area */}
         <div 
-          onClick={handleClick}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 cursor-pointer group backdrop-blur-sm ${
-            isDragging
-              ? 'border-blue-500 bg-blue-100/50'
-              : 'border-slate-300 hover:border-blue-400 bg-white/50 hover:bg-blue-50/30'
-          } ${uploading ? 'pointer-events-none opacity-50' : ''}`}
           onClick={handleClick}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
@@ -411,19 +392,8 @@ export default function UploadCard() {
           <svg className={`w-12 h-12 mx-auto mb-4 transition-colors ${
             isDragging ? 'text-blue-500' : 'text-slate-400 group-hover:text-blue-500'
           }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <svg className={`w-12 h-12 mx-auto mb-4 transition-colors ${
-            isDragging ? 'text-blue-500' : 'text-slate-400 group-hover:text-blue-500'
-          }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
           </svg>
-          <p className="text-sm text-slate-600 mb-3 font-medium">
-            {isDragging ? 'Drop files here' : 'Drop PDF files here or click to browse'}
-          </p>
-          <button 
-            type="button"
-            className="text-sm bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-2 rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl"
-          >
-            {uploading ? 'Uploading...' : 'Browse Files'}
           <p className="text-sm text-slate-600 mb-3 font-medium">
             {isDragging ? 'Drop files here' : 'Drop PDF files here or click to browse'}
           </p>
@@ -441,25 +411,9 @@ export default function UploadCard() {
             <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Uploaded Files</p>
             {uploadedFiles.map((file) => (
               <div key={file.id} className={`flex items-center justify-between p-4 bg-gradient-to-r rounded-xl border shadow-sm ${getFileStatusColor(file.status)}`}>
-              <div key={file.id} className={`flex items-center justify-between p-4 bg-gradient-to-r rounded-xl border shadow-sm ${getFileStatusColor(file.status)}`}>
                 <div className="flex items-center gap-3">
                   {getFileStatusIcon(file.status)}
-                  {getFileStatusIcon(file.status)}
                   <div>
-                    <p className={`text-sm font-semibold ${
-                      file.status === 'uploaded' ? 'text-green-800' : 
-                      file.status === 'error' ? 'text-red-800' : 
-                      'text-blue-800'
-                    }`}>
-                      {file.name}
-                    </p>
-                    <p className={`text-xs font-medium ${
-                      file.status === 'uploaded' ? 'text-green-600' : 
-                      file.status === 'error' ? 'text-red-600' : 
-                      'text-blue-600'
-                    }`}>
-                      {file.size} {file.status === 'uploading' && '• Uploading...'}
-                    </p>
                     <p className={`text-sm font-semibold ${
                       file.status === 'uploaded' ? 'text-green-800' : 
                       file.status === 'error' ? 'text-red-800' : 
@@ -480,10 +434,8 @@ export default function UploadCard() {
                   onClick={() => removeFile(file.name)}
                   className="w-8 h-8 bg-white border border-slate-200 rounded-lg flex items-center justify-center hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-all duration-200 shadow-sm"
                   disabled={file.status === 'uploading'}
-                  disabled={file.status === 'uploading'}
                 >
                   <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -523,7 +475,6 @@ export default function UploadCard() {
             <input
               type="password"
               placeholder="API Key (Optional)"
-              placeholder="API Key (Optional)"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               className="text-slate-800 w-full pl-12 pr-4 py-4 border border-slate-300/80 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white/80 backdrop-blur-sm placeholder-slate-500 hover:border-slate-400 transition-all duration-300 shadow-sm"
@@ -542,22 +493,8 @@ export default function UploadCard() {
             </div>
           )}
           
-          {/* Error Message */}
-          {connectionError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                {connectionError}
-              </div>
-            </div>
-          )}
-          
           <button
             onClick={handleConnect}
-            disabled={!dbUrl.trim() || connecting}
-            className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white py-4 rounded-2xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 disabled:from-slate-300 disabled:to-slate-400 disabled:cursor-not-allowed text-sm font-semibold shadow-lg hover:shadow-xl disabled:shadow-md flex items-center justify-center gap-2"
             disabled={!dbUrl.trim() || connecting}
             className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white py-4 rounded-2xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 disabled:from-slate-300 disabled:to-slate-400 disabled:cursor-not-allowed text-sm font-semibold shadow-lg hover:shadow-xl disabled:shadow-md flex items-center justify-center gap-2"
           >

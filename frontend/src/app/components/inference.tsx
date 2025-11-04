@@ -363,10 +363,7 @@ export default function Inference() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleSendQuery()}
-              onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleSendQuery()}
               placeholder="Ask a question about your documents..."
-              disabled={isLoading}
-              className="w-full px-6 py-4 border border-slate-300/80 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white/90 text-slate-900 placeholder-slate-500 hover:border-slate-400 transition-all duration-300 shadow-lg backdrop-blur-sm pr-12 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading}
               className="w-full px-6 py-4 border border-slate-300/80 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white/90 text-slate-900 placeholder-slate-500 hover:border-slate-400 transition-all duration-300 shadow-lg backdrop-blur-sm pr-12 disabled:opacity-50 disabled:cursor-not-allowed"
             />
@@ -377,22 +374,8 @@ export default function Inference() {
           <button
             onClick={handleSendQuery}
             disabled={!query.trim() || isLoading}
-            disabled={!query.trim() || isLoading}
             className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-8 py-4 rounded-2xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 disabled:from-slate-300 disabled:to-slate-400 disabled:cursor-not-allowed flex items-center gap-3 font-semibold shadow-lg hover:shadow-xl disabled:shadow-md min-w-[120px] justify-center"
           >
-            {isLoading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Thinking...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                </svg>
-                <span>Send</span>
-              </>
-            )}
             {isLoading ? (
               <>
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
