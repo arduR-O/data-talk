@@ -1,7 +1,8 @@
-from unified_orchestrator import get_orchestrator
+# from unified_orchestrator import get_orchestrator
+from agentic_orchestrator import get_orchestrator
 from models.chat_history import ChatHistoryModel
 from models.users import UserModel
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage, SystemMessage
 from typing import Optional
 
 class ChatController:
@@ -55,7 +56,8 @@ class ChatController:
                 question=question,
                 user_id=user_id,
                 conversation_history=conversation_history,
-                db_url=db_url
+                db_url=db_url,
+                debug=True
             )
             
             answer = result['answer']
