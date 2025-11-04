@@ -143,28 +143,25 @@ export default function Home() {
       </div>
 
       {/* Title with enhanced animation */}
-      <div className="text-center mb-8 sm:mb-16 relative z-10 animate-fade-in">
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 mb-6">
-          <div className="relative animate-bounce-slow">
-            <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 bg-gradient-to-r from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center shadow-2xl animate-glow">
-              <svg className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-            </div>
-            <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-400 rounded-full border-4 border-slate-900 shadow-lg animate-ping-slow"></div>
-          </div>
-          
-          <h1 className="font-mono text-white text-4xl sm:text-5xl md:text-6xl font-bold animate-typewriter">
-            DataSpeak
-          </h1>
-        </div>
-        
-        
-        
-        {/* Decorative line */}
-        <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mx-auto mt-6 shadow-lg animate-expand" style={{animationDelay: '1s'}}></div>
+<div className="text-center mb-8 sm:mb-12 relative z-10 animate-fade-in">
+  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-4">
+    <div className="relative animate-bounce-slow">
+      <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl animate-glow">
+        <svg className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
       </div>
-      
+      <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-slate-900 shadow-md animate-ping-slow"></div>
+    </div>
+    
+    <h1 className="font-mono text-white text-2xl sm:text-3xl md:text-4xl font-bold animate-typewriter">
+      DataSpeak
+    </h1>
+  </div>
+  
+  {/* Decorative line */}
+  <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mx-auto mt-4 shadow-md animate-expand" style={{animationDelay: '1s'}}></div>
+</div>
       {/* Cards container */}
       <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 w-full max-w-7xl justify-center items-stretch relative z-10">
         {/* Upload Card */}

@@ -120,7 +120,7 @@ export default function LandingPage() {
               repeat: Infinity,
               delay: Math.random() * 5,
             }}
-          />
+           suppressHydrationWarning/>
         ))}
       </div>
     </main>

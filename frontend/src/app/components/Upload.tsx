@@ -24,6 +24,8 @@ export default function UploadCard() {
   const [connecting, setConnecting] = useState(false);
   const [connectionError, setConnectionError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [filesDropdownOpen, setFilesDropdownOpen] = useState(false);
+  const [connectionsDropdownOpen, setConnectionsDropdownOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -405,10 +407,29 @@ export default function UploadCard() {
           </button>
         </div>
 
-        {/* Uploaded Files List */}
+        {/* Uploaded Files Dropdown Button */}
         {uploadedFiles.length > 0 && (
-          <div className="space-y-3">
-            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Uploaded Files</p>
+          <div className="flex justify-center">
+            <button
+              onClick={() => setFilesDropdownOpen(!filesDropdownOpen)}
+              className="text-sm bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-3 rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl flex items-center gap-2"
+            >
+              {filesDropdownOpen ? 'Hide Files' : 'Show Files'} ({uploadedFiles.length})
+              <svg 
+                className={`w-4 h-4 transition-transform ${filesDropdownOpen ? 'rotate-180' : ''}`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {/* Uploaded Files Dropdown */}
+        {uploadedFiles.length > 0 && filesDropdownOpen && (
+          <div className="space-y-3 max-h-60 overflow-y-auto">
             {uploadedFiles.map((file) => (
               <div key={file.id} className={`flex items-center justify-between p-4 bg-gradient-to-r rounded-xl border shadow-sm ${getFileStatusColor(file.status)}`}>
                 <div className="flex items-center gap-3">
@@ -468,8 +489,6 @@ export default function UploadCard() {
             />
           </div>
           
-         
-          
           {/* Error Message */}
           {connectionError && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
@@ -499,37 +518,54 @@ export default function UploadCard() {
         </div>
       </div>
 
-      {/* Connected Sources */}
+      {/* Connected Sources Dropdown Button */}
       {connections.length > 0 && (
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-slate-800">Active Connections</h3>
-          <div className="space-y-3">
-            {connections.map((connection) => (
-              <div key={connection.id} className="flex items-center justify-between gap-3 p-4 bg-white/80 backdrop-blur-sm rounded-xl border border-slate-200/60 shadow-sm">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="relative flex-shrink-0">
-                    <div className={`w-3 h-3 rounded-full ${connection.status === 'connected' ? 'bg-green-500' : 'bg-red-500'} shadow-sm`}></div>
-                    <div className={`absolute inset-0 rounded-full ${connection.status === 'connected' ? 'bg-green-500' : 'bg-red-500'} animate-ping`}></div>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-slate-800 truncate" title={connection.name}>
-                      {connection.name}
-                    </p>
-                    <p className="text-xs text-slate-500 font-medium capitalize">{connection.type} connection</p>
-                  </div>
+        <div className="flex justify-center">
+          <button
+            onClick={() => setConnectionsDropdownOpen(!connectionsDropdownOpen)}
+            className="text-sm bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-3 rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl flex items-center gap-2"
+          >
+            {connectionsDropdownOpen ? 'Hide Connections' : 'Show Connections'} ({connections.length})
+            <svg 
+              className={`w-4 h-4 transition-transform ${connectionsDropdownOpen ? 'rotate-180' : ''}`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* Connected Sources Dropdown */}
+      {connections.length > 0 && connectionsDropdownOpen && (
+        <div className="space-y-3 max-h-60 overflow-y-auto">
+          {connections.map((connection) => (
+            <div key={connection.id} className="flex items-center justify-between gap-3 p-4 bg-white/80 backdrop-blur-sm rounded-xl border border-slate-200/60 shadow-sm">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="relative flex-shrink-0">
+                  <div className={`w-3 h-3 rounded-full ${connection.status === 'connected' ? 'bg-green-500' : 'bg-red-500'} shadow-sm`}></div>
+                  <div className={`absolute inset-0 rounded-full ${connection.status === 'connected' ? 'bg-green-500' : 'bg-red-500'} animate-ping`}></div>
                 </div>
-                <button 
-                  onClick={() => removeConnection(connection.id)}
-                  className="w-8 h-8 bg-white border border-slate-200 rounded-lg flex items-center justify-center hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-all duration-200 shadow-sm flex-shrink-0"
-                  title="Remove connection"
-                >
-                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-800 truncate" title={connection.name}>
+                    {connection.name}
+                  </p>
+                  <p className="text-xs text-slate-500 font-medium capitalize">{connection.type} connection</p>
+                </div>
               </div>
-            ))}
-          </div>
+              <button 
+                onClick={() => removeConnection(connection.id)}
+                className="w-8 h-8 bg-white border border-slate-200 rounded-lg flex items-center justify-center hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-all duration-200 shadow-sm flex-shrink-0"
+                title="Remove connection"
+              >
+                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
