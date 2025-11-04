@@ -39,7 +39,7 @@ export default function Home() {
     sessionStorage.removeItem('user');
     setUser(null);
     setIsDropdownOpen(false);
-    router.push('/login');
+    router.push('/landing');
   };
 
   return (

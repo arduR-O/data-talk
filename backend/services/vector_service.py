@@ -20,22 +20,70 @@ class DocumentVectorService:
     
     def __init__(
         self,
-        index_name: str = "data-talk",
-        embedding_model: str = "models/text-embedding-004"
+        index_name: str = "data-speak",
+        embedding_model: str = None  # Will auto-detect
     ):
         self.index_name = index_name
-        self.embeddings = GoogleGenerativeAIEmbeddings(model=embedding_model)
-        self.pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
-        self.vector_store = self._init_vector_store()
         
+        # 🔥 FIX: Auto-detect dimension from existing index
+        self.pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
+        
+        # Check if index exists and get its dimension
+        existing_dimension = self._get_index_dimension()
+        
+        if existing_dimension:
+            print(f"📊 Detected existing index dimension: {existing_dimension}")
+            # Automatically match the embedding model to the index dimension
+            if existing_dimension == 3072:
+                embedding_model = "models/embedding-001"  # 3072 dimensions
+                print("✅ Auto-selected: embedding-001 (3072 dims)")
+            elif existing_dimension == 768:
+                embedding_model = "models/text-embedding-004"  # 768 dimensions
+                print("✅ Auto-selected: text-embedding-004 (768 dims)")
+            else:
+                raise ValueError(f"Unsupported index dimension: {existing_dimension}. Expected 768 or 3072.")
+            self.embedding_dimension = existing_dimension
+        else:
+            # No existing index - use default (embedding-001 with 3072 dims)
+            if embedding_model is None:
+                embedding_model = "models/embedding-001"
+            print(f"📝 No existing index. Will create with model: {embedding_model}")
+            
+            # Determine dimension based on model
+            if "embedding-001" in embedding_model:
+                self.embedding_dimension = 3072
+            elif "text-embedding-004" in embedding_model:
+                self.embedding_dimension = 768
+            else:
+                # Default fallback
+                self.embedding_dimension = 3072
+        
+        # Initialize embeddings with auto-detected model
+        self.embeddings = GoogleGenerativeAIEmbeddings(model=embedding_model)
+        print(f"🔧 Using embedding model: {embedding_model} ({self.embedding_dimension} dims)")
+        
+        # Initialize vector store
+        self.vector_store = self._init_vector_store()
+    
+    def _get_index_dimension(self) -> Optional[int]:
+        """Get the dimension of existing index, or None if doesn't exist"""
+        try:
+            if self.index_name in self.pc.list_indexes().names():
+                index_info = self.pc.describe_index(self.index_name)
+                return index_info.dimension
+            return None
+        except Exception as e:
+            print(f"Error checking index dimension: {e}")
+            return None
+    
     def _init_vector_store(self) -> PineconeVectorStore:
         """Initialize Pinecone vector store with proper index configuration"""
         if self.index_name not in self.pc.list_indexes().names():
-            print(f"Creating index: {self.index_name}")
+            print(f"Creating index: {self.index_name} with dimension {self.embedding_dimension}")
             self.pc.create_index(
                 name=self.index_name,
                 metric="cosine",
-                dimension=768,  # text-embedding-004 dimension
+                dimension=self.embedding_dimension,
                 spec=ServerlessSpec(cloud="aws", region="us-east-1"),
             )
         
@@ -73,11 +121,14 @@ class DocumentVectorService:
             doc_id = self._generate_doc_id(user_id, filename)
             
             # Load PDF
+            print(f"📄 Loading PDF: {filename}")
             loader = PDFMinerLoader(file_path)
             docs = loader.load()
             
             if not docs:
                 raise ValueError(f"No content extracted from {filename}")
+            
+            print(f"📝 Extracted {len(docs)} pages from {filename}")
             
             # Split documents into chunks
             text_splitter = RecursiveCharacterTextSplitter(
@@ -85,6 +136,7 @@ class DocumentVectorService:
                 chunk_overlap=200
             )
             all_splits = text_splitter.split_documents(docs)
+            print(f"✂️ Split into {len(all_splits)} chunks")
             
             # Add metadata to each chunk for filtering
             for i, split in enumerate(all_splits):
@@ -97,7 +149,9 @@ class DocumentVectorService:
                 })
             
             # Upload to Pinecone
+            print(f"⬆️ Uploading {len(all_splits)} vectors to Pinecone...")
             ids = self.vector_store.add_documents(documents=all_splits)
+            print(f"✅ Successfully vectorized {filename}: {len(all_splits)} chunks")
             
             return {
                 "success": True,
@@ -108,7 +162,7 @@ class DocumentVectorService:
             }
             
         except Exception as e:
-            print(f"Error processing document {filename}: {str(e)}")
+            print(f"❌ Error processing document {filename}: {str(e)}")
             return {
                 "success": False,
                 "filename": filename,
@@ -129,26 +183,26 @@ class DocumentVectorService:
         try:
             doc_id = self._generate_doc_id(user_id, filename)
             
-            # Delete vectors by metadata filter
-            # Note: Pinecone filtering works differently based on plan
-            # For serverless, we need to delete by IDs
-            
             # Get the index directly for deletion operations
             index = self.pc.Index(self.index_name)
             
-            # Delete by metadata filter (if supported by your Pinecone plan)
-            # Alternative: Query first, then delete by IDs
+            # Delete by metadata filter
             try:
                 index.delete(filter={
                     "user_id": {"$eq": user_id},
                     "filename": {"$eq": filename}
                 })
-                deleted_count = "unknown"  # Pinecone doesn't return count
+                deleted_count = "vectors deleted (count unknown)"
+                print(f"🗑️ Deleted vectors for {filename}")
             except Exception as filter_error:
                 # Fallback: Query and delete by IDs
-                print(f"Filter delete failed, using query method: {filter_error}")
+                print(f"⚠️ Filter delete failed, using query method: {filter_error}")
+                
+                # Create a dummy vector for metadata-only query
+                dummy_vector = [0.0] * self.embedding_dimension
+                
                 query_result = index.query(
-                    vector=[0] * 768,  # Dummy vector for metadata query
+                    vector=dummy_vector,
                     filter={
                         "user_id": {"$eq": user_id},
                         "filename": {"$eq": filename}
@@ -161,8 +215,10 @@ class DocumentVectorService:
                     ids_to_delete = [match.id for match in query_result.matches]
                     index.delete(ids=ids_to_delete)
                     deleted_count = len(ids_to_delete)
+                    print(f"🗑️ Deleted {deleted_count} vectors for {filename}")
                 else:
                     deleted_count = 0
+                    print(f"⚠️ No vectors found for {filename}")
             
             return {
                 "success": True,
@@ -171,7 +227,7 @@ class DocumentVectorService:
             }
             
         except Exception as e:
-            print(f"Error deleting document {filename}: {str(e)}")
+            print(f"❌ Error deleting document {filename}: {str(e)}")
             return {
                 "success": False,
                 "filename": filename,
@@ -193,12 +249,13 @@ class DocumentVectorService:
             
             try:
                 index.delete(filter={"user_id": {"$eq": user_id}})
+                print(f"🗑️ Deleted all documents for user {user_id}")
                 return {
                     "success": True,
                     "message": f"All documents for user {user_id} deleted"
                 }
             except Exception as e:
-                print(f"Error deleting user documents: {e}")
+                print(f"❌ Error deleting user documents: {e}")
                 return {
                     "success": False,
                     "error": str(e)
@@ -227,7 +284,6 @@ class DocumentVectorService:
             embedding=self.embeddings,
             index=index,
             namespace="",  # Use default namespace
-            filter={"user_id": user_id}  # Pre-filter for this user
         )
     
     def list_user_documents(self, user_id: str) -> List[str]:
@@ -244,9 +300,12 @@ class DocumentVectorService:
         try:
             index = self.pc.Index(self.index_name)
             
+            # Create a dummy vector for metadata-only query
+            dummy_vector = [0.0] * self.embedding_dimension
+            
             # Query with user filter to get sample of documents
             query_result = index.query(
-                vector=[0] * 768,
+                vector=dummy_vector,
                 filter={"user_id": {"$eq": user_id}},
                 top_k=1000,
                 include_metadata=True
@@ -258,10 +317,11 @@ class DocumentVectorService:
                 if match.metadata and "filename" in match.metadata:
                     filenames.add(match.metadata["filename"])
             
+            print(f"📋 Found {len(filenames)} documents for user {user_id}")
             return list(filenames)
             
         except Exception as e:
-            print(f"Error listing documents: {e}")
+            print(f"❌ Error listing documents: {e}")
             return []
 
 
