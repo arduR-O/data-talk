@@ -1,12 +1,19 @@
 from orchestrator import chat
+from models.users import UserModel
 
 class ChatController:
     def __init__(self):
-        pass
+        self.user_model = UserModel()
     
-    def process_message(self, question: str) -> dict:
+    def process_message(self, question: str, user_id: str = None) -> dict:
         try:
-            response = chat(question)
+            # Get user's database URL if user_id is provided
+            db_url = None
+            if user_id:
+                db_url = self.user_model.get_db_url(user_id)
+            
+            # Call orchestrator with user_id and db_url
+            response = chat(question, user_id=user_id, db_url=db_url)
             return {
                 'success': True,
                 'data': {

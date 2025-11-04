@@ -5,3 +5,10 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
+
+class DatabaseUrlRequest(BaseModel):
+    db_url: str
+
+class DatabaseUrlResponse(BaseModel):
+    message: str
+    db_url: str

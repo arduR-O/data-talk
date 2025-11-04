@@ -13,6 +13,7 @@ export default function Inference() {
     }
   ]);
   const [isClient, setIsClient] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   React.useEffect(() => {
     setIsClient(true);
@@ -35,7 +36,7 @@ export default function Inference() {
   };
 
   const handleSendQuery = async () => {
-  if (!query.trim()) return;
+  if (!query.trim() || isLoading) return;
   
   const userMessage = {
     type: 'user',
@@ -46,12 +47,28 @@ export default function Inference() {
   setResponses(prev => [...prev, userMessage]);
   const currentQuery = query;
   setQuery('');
-  // setIsLoading(true);
+  setIsLoading(true);
 
   try {
-    const response = await axios.post('http://localhost:8000/api/chat', {
-      question: currentQuery,
-    });
+    const token = localStorage.getItem('token');
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add authorization header if token exists
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    const response = await axios.post(
+      'http://localhost:8000/api/chat',
+      {
+        question: currentQuery,
+      },
+      {
+        headers,
+      }
+    );
     
     const aiResponse = {
       type: 'assistant',
@@ -68,7 +85,7 @@ export default function Inference() {
     };
     setResponses(prev => [...prev, errorMessage]);
   } finally {
-    // setIsLoading(false);
+    setIsLoading(false);
   }
 };
 
@@ -135,10 +152,11 @@ export default function Inference() {
                     // Extract <think>...</think> content from assistant messages
                     const extractThink = (text: string) => {
                       if (!text) return { visible: '', think: '' };
-                      const regex = /<think>[\s\S]*?<\/think>/g;
-                      const thinks = text.match(regex) || [];
-                      const thinkText = thinks
-                        .map(t => t.replace(/<\/?think>/g, '').trim())
+                      // Look for <think>...</think> tags - both opening and closing use "think"
+                      const regex = /<think>([\s\S]*?)<\/think>/g;
+                      const matches = Array.from(text.matchAll(regex));
+                      const thinkText = matches
+                        .map(match => match[1]?.trim())
                         .filter(Boolean)
                         .join('\n\n');
                       const visible = text.replace(regex, '').trim();
@@ -181,6 +199,24 @@ export default function Inference() {
               </div>
             </div>
           ))}
+          {/* Loading indicator */}
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="max-w-[85%] flex gap-4 flex-row">
+                <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg bg-gradient-to-br from-slate-600 to-slate-700">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                </div>
+                <div className="rounded-3xl px-6 py-4 backdrop-blur-sm shadow-lg bg-white/90 border border-slate-200/60 text-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-sm text-slate-600">Thinking...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -192,9 +228,10 @@ export default function Inference() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSendQuery()}
+              onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleSendQuery()}
               placeholder="Ask a question about your documents..."
-              className="w-full px-6 py-4 border border-slate-300/80 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white/90 text-slate-900 placeholder-slate-500 hover:border-slate-400 transition-all duration-300 shadow-lg backdrop-blur-sm pr-12"
+              disabled={isLoading}
+              className="w-full px-6 py-4 border border-slate-300/80 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white/90 text-slate-900 placeholder-slate-500 hover:border-slate-400 transition-all duration-300 shadow-lg backdrop-blur-sm pr-12 disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm">
               ⏎ Enter
@@ -202,13 +239,22 @@ export default function Inference() {
           </div>
           <button
             onClick={handleSendQuery}
-            disabled={!query.trim()}
+            disabled={!query.trim() || isLoading}
             className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-8 py-4 rounded-2xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 disabled:from-slate-300 disabled:to-slate-400 disabled:cursor-not-allowed flex items-center gap-3 font-semibold shadow-lg hover:shadow-xl disabled:shadow-md min-w-[120px] justify-center"
           >
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-            </svg>
-            <span>Send</span>
+            {isLoading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Thinking...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                </svg>
+                <span>Send</span>
+              </>
+            )}
           </button>
         </div>
         <p className="text-xs text-slate-500 mt-4 text-center font-medium">
