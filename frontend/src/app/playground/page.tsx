@@ -155,13 +155,11 @@ export default function Home() {
           </div>
           
           <h1 className="font-mono text-white text-4xl sm:text-5xl md:text-6xl font-bold animate-typewriter">
-            DataTalk
+            DataSpeak
           </h1>
         </div>
         
-        <p className="text-gray-400 text-lg sm:text-xl md:text-2xl max-w-2xl mx-auto px-4 animate-slide-up" style={{animationDelay: '0.5s'}}>
-          Your AI Data Scientist - Upload documents, connect data sources, and have intelligent conversations
-        </p>
+        
         
         {/* Decorative line */}
         <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mx-auto mt-6 shadow-lg animate-expand" style={{animationDelay: '1s'}}></div>

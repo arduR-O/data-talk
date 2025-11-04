@@ -35,7 +35,7 @@ export default function LandingPage() {
           transition={{ duration: 0.6 }}
           className="text-6xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent"
         >
-          DataTalk
+          DataSpeak
         </motion.h1>
 
         {/* Subtitle */}
@@ -82,12 +82,7 @@ export default function LandingPage() {
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-sm -z-10"></div>
           </Link>
           
-          <Link
-            href="/signup"
-            className="group border-2 border-white/20 hover:border-white/40 bg-white/5 hover:bg-white/10 backdrop-blur-sm text-white px-10 py-4 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 min-w-[160px] text-center"
-          >
-            <span>Learn More</span>
-          </Link>
+          
         </motion.div>
 
        
