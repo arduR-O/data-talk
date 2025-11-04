@@ -99,7 +99,7 @@ export default function SignupPage() {
         
         // Show success message and redirect
         setTimeout(() => {
-          router.push('/');
+          router.push('/playground');
         }, 1000);
         
       } else {

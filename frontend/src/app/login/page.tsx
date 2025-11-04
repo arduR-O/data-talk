@@ -47,7 +47,7 @@ export default function LoginPage() {
         console.log('Login successful:', data);
         
         // Redirect to dashboard
-        router.push('/');
+        router.push('/playground');
       } else {
         setError(data.detail || 'Login failed. Please try again.');
       }
@@ -84,7 +84,7 @@ export default function LoginPage() {
         localStorage.setItem('token', data.data.token);
         localStorage.setItem('user', JSON.stringify(data.data));
         console.log('Demo login successful:', data);
-        router.push('/');
+        router.push('/playground');
       } else {
         // If demo account doesn't exist, suggest signing up first
         setError('Demo account not found. Please sign up first or use your own credentials.');
