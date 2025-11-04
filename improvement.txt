@@ -1,14 +1,14 @@
-1) add more databases (local and hosted)
-2) refactor the application to an agentic workflow: unified agent with tools to interact with db and pdfs
-3) The llm, on seeing a query, should create a list of steps it's going to take using the tools, for example, retrive this, retrieve that, get this from db and then just give a reply. Maybe use few shot learning in the system message
-4) multiple unstructured docs (add metadata, summary)
-5) handle uploads from frtonend
-6) handle csv data
-7) backend should be more robust, error handling and what not
-8) auth
-9) better retrieval strategies
-10) eda
-11) conversation history and multiple conversation
+1) add more databases (local and hosted) \\
+2) refactor the application to an agentic workflow: unified agent with tools to interact with db and pdfs \\
+3) The llm, on seeing a query, should create a list of steps it's going to take using the tools, for example, retrive this, retrieve that, get this from db and then just give a reply. Maybe use few shot learning in the system message \\
+4) multiple unstructured docs (add metadata, summary) \/
+5) handle uploads from frtonend \/
+6) handle csv data \/
+7) backend should be more robust, error handling and what not //
+8) auth \/
+9) better retrieval strategies //
+10) eda //
+11) conversation history and multiple conversation \/
 
 
 I wanna create a agentic flow, but for that I need to have tools defined, I might make some changes to how retrival is fundamentally being done, so it would be better to do that before finalizing the agent
