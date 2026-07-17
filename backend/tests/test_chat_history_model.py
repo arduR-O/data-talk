@@ -15,9 +15,9 @@ class TestChatHistoryModel:
     def chat_history_model(self):
         """Create ChatHistoryModel instance with mocked MongoDB"""
         with patch('models.chat_history.MongoClient') as mock_client_class:
-            mock_client = Mock()
-            mock_db = Mock()
-            mock_collection = Mock()
+            mock_client = MagicMock()
+            mock_db = MagicMock()
+            mock_collection = MagicMock()
             
             mock_client_class.return_value = mock_client
             mock_client.__getitem__.return_value = mock_db
@@ -74,7 +74,9 @@ class TestChatHistoryModel:
             }
         ]
         
-        mock_cursor = Mock()
+        mock_cursor = MagicMock()
+        mock_cursor.sort.return_value = mock_cursor
+        mock_cursor.limit.return_value = mock_cursor
         mock_cursor.__iter__.return_value = iter(mock_messages)
         chat_history_model.chat_history.find.return_value = mock_cursor
         
@@ -92,7 +94,9 @@ class TestChatHistoryModel:
         """Test getting empty chat history"""
         user_id = str(ObjectId())
         
-        mock_cursor = Mock()
+        mock_cursor = MagicMock()
+        mock_cursor.sort.return_value = mock_cursor
+        mock_cursor.limit.return_value = mock_cursor
         mock_cursor.__iter__.return_value = iter([])
         chat_history_model.chat_history.find.return_value = mock_cursor
         
@@ -105,7 +109,7 @@ class TestChatHistoryModel:
         user_id = str(ObjectId())
         limit = 10
         
-        mock_cursor = Mock()
+        mock_cursor = MagicMock()
         mock_cursor.__iter__.return_value = iter([])
         mock_cursor.sort.return_value = mock_cursor
         mock_cursor.limit.return_value = mock_cursor

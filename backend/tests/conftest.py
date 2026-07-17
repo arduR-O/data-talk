@@ -74,9 +74,9 @@ def mock_chat_message():
 @pytest.fixture
 def mock_mongo_client():
     """Mock MongoDB client"""
-    client = Mock()
-    db = Mock()
-    collection = Mock()
+    client = MagicMock()
+    db = MagicMock()
+    collection = MagicMock()
     
     client.__getitem__.return_value = db
     db.__getitem__.return_value = collection

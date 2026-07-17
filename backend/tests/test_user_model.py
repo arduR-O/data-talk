@@ -16,9 +16,9 @@ class TestUserModel:
     def user_model(self):
         """Create UserModel instance with mocked MongoDB"""
         with patch('models.users.MongoClient') as mock_client_class:
-            mock_client = Mock()
-            mock_db = Mock()
-            mock_collection = Mock()
+            mock_client = MagicMock()
+            mock_db = MagicMock()
+            mock_collection = MagicMock()
             
             mock_client_class.return_value = mock_client
             mock_client.__getitem__.return_value = mock_db
