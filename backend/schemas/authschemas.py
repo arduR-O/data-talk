@@ -22,3 +22,6 @@ class AuthResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
+
+class GoogleLoginRequest(BaseModel):
+    id_token: str

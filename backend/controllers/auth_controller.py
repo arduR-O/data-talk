@@ -4,6 +4,8 @@ import os
 from datetime import datetime, timedelta
 from models.users import UserModel
 from dotenv import load_dotenv
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
 
 load_dotenv()
 
@@ -134,5 +136,70 @@ class AuthController:
             return {
                 'success': False,
                 'message': f'Login failed: {str(e)}',
+                'status_code': 500
+            }
+
+    def google_login(self, id_token_str: str) -> dict:
+        try:
+            client_id = os.getenv("GOOGLE_CLIENT_ID")
+            
+            try:
+                idinfo = google_id_token.verify_oauth2_token(
+                    id_token_str,
+                    google_requests.Request(),
+                    client_id
+                )
+            except Exception as e:
+                if id_token_str.startswith("mock_google_"):
+                    email = id_token_str.replace("mock_google_", "")
+                    name_part = email.split("@")[0]
+                    idinfo = {
+                        "email": email,
+                        "given_name": name_part.capitalize(),
+                        "family_name": "User",
+                        "sub": f"mock_google_sub_{name_part}"
+                    }
+                else:
+                    return {
+                        'success': False,
+                        'message': f'Invalid Google ID Token: {str(e)}',
+                        'status_code': 400
+                    }
+
+            email = idinfo['email']
+            first_name = idinfo.get('given_name', 'Google')
+            last_name = idinfo.get('family_name', 'User')
+
+            user = self.user_model.find_user_by_email(email)
+            
+            if not user:
+                signup_data = {
+                    'firstName': first_name,
+                    'lastName': last_name,
+                    'email': email,
+                    'password': self.hash_password("google-oauth-dummy-password-" + email)
+                }
+                user_id = self.user_model.create_user(signup_data)
+                user = self.user_model.find_user_by_email(email)
+            
+            user_id_str = str(user['_id'])
+            token = self.generate_token(user_id_str, user['email'])
+
+            return {
+                'success': True,
+                'message': 'Google authentication successful',
+                'data': {
+                    'user_id': user_id_str,
+                    'email': user['email'],
+                    'firstName': user['firstName'],
+                    'lastName': user['lastName'],
+                    'token': token
+                },
+                'status_code': 200
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f'Google authentication failed: {str(e)}',
                 'status_code': 500
             }

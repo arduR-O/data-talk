@@ -204,3 +204,42 @@ class TestAuthController:
         assert result['status_code'] == 500
         assert 'failed' in result['message'].lower()
 
+    def test_google_login_success_existing_user(self, auth_controller, mock_user_db_data):
+        """Test successful Google Login for an existing user using a mock token"""
+        mock_user_db_data['email'] = 'google-user@example.com'
+        auth_controller.user_model.find_user_by_email.return_value = mock_user_db_data
+        
+        result = auth_controller.google_login('mock_google_google-user@example.com')
+        
+        assert result['success'] is True
+        assert result['status_code'] == 200
+        assert 'token' in result['data']
+        assert result['data']['email'] == 'google-user@example.com'
+        auth_controller.user_model.find_user_by_email.assert_called_once_with('google-user@example.com')
+
+    def test_google_login_success_new_user(self, auth_controller, mock_user_db_data):
+        """Test successful Google Login and auto-signup for a first-time user"""
+        new_email = 'new-oauth-user@example.com'
+        mock_user_db_data['email'] = new_email
+        
+        # First call finds no user, second call returns the created user dict
+        auth_controller.user_model.find_user_by_email.side_effect = [None, mock_user_db_data]
+        auth_controller.user_model.create_user.return_value = '507f1f77bcf86cd799439011'
+        
+        result = auth_controller.google_login(f'mock_google_{new_email}')
+        
+        assert result['success'] is True
+        assert result['status_code'] == 200
+        assert 'token' in result['data']
+        assert result['data']['email'] == new_email
+        auth_controller.user_model.create_user.assert_called_once()
+
+    def test_google_login_invalid_token(self, auth_controller):
+        """Test Google Login with an invalid/un-mocked token"""
+        result = auth_controller.google_login('invalid_token_string_without_prefix')
+        
+        assert result['success'] is False
+        assert result['status_code'] == 400
+        assert 'invalid' in result['message'].lower()
+
+

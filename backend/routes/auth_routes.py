@@ -1,9 +1,25 @@
 from fastapi import APIRouter, HTTPException, Header, Depends
 from controllers.auth_controller import AuthController
-from schemas.authschemas import SignupRequest, LoginRequest, AuthResponse
+from schemas.authschemas import SignupRequest, LoginRequest, AuthResponse, GoogleLoginRequest
 
 router = APIRouter()
 auth_controller = AuthController()
+
+@router.post("/google", response_model=AuthResponse)
+async def google_login(payload: GoogleLoginRequest):
+    """Google OAuth login and auto-signup endpoint"""
+    result = auth_controller.google_login(payload.id_token)
+    
+    if result['success']:
+        return {
+            "message": result['message'],
+            "data": result['data']
+        }
+    else:
+        raise HTTPException(
+            status_code=result['status_code'],
+            detail=result['message']
+        )
 
 @router.post("/signup", response_model=AuthResponse)
 async def signup(user_data: SignupRequest):
