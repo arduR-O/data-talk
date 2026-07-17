@@ -14,8 +14,7 @@ class AuthController:
             self.user_model.client.admin.command('ping')
             print("Successfully connected to MongoDB Atlas!")
         except Exception as e:
-            print(f"MongoDB connection failed: {e}")
-            raise e
+            print(f"MongoDB connection failed: {e}. Falling back to SQLite.")
             
         self.jwt_secret = os.getenv('JWT_SECRET_KEY')
         self.jwt_algorithm = os.getenv('JWT_ALGORITHM', 'HS256')
