@@ -11,8 +11,11 @@ class AuthController:
     def __init__(self):
         try:
             self.user_model = UserModel()
-            self.user_model.client.admin.command('ping')
-            print("Successfully connected to MongoDB Atlas!")
+            if hasattr(self.user_model, 'client') and self.user_model.client:
+                self.user_model.client.admin.command('ping')
+                print("Successfully connected to MongoDB Atlas!")
+            else:
+                print("Using local SQLite auth database (fallback).")
         except Exception as e:
             print(f"MongoDB connection failed: {e}. Falling back to SQLite.")
             
