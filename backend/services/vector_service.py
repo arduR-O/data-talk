@@ -4,7 +4,7 @@ from typing import List, Dict, Optional
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone, ServerlessSpec
-from langchain_community.document_loaders import PDFMinerLoader
+from langchain_community.document_loaders import PDFMinerLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pathlib import Path
 import hashlib
@@ -120,15 +120,20 @@ class DocumentVectorService:
             # Generate unique document ID
             doc_id = self._generate_doc_id(user_id, filename)
             
-            # Load PDF
-            print(f"📄 Loading PDF: {filename}")
-            loader = PDFMinerLoader(file_path)
+            ext = Path(filename).suffix.lower()
+            if ext in ['.txt', '.md']:
+                loader = TextLoader(file_path, encoding='utf-8')
+            elif ext == '.pdf':
+                loader = PDFMinerLoader(file_path)
+            else:
+                raise ValueError(f"Unsupported file format: {ext}")
+                
             docs = loader.load()
             
             if not docs:
                 raise ValueError(f"No content extracted from {filename}")
             
-            print(f"📝 Extracted {len(docs)} pages from {filename}")
+            print(f"📝 Extracted content from {filename}")
             
             # Split documents into chunks
             text_splitter = RecursiveCharacterTextSplitter(
