@@ -180,7 +180,7 @@ export default function SignupPage() {
               </div>
               <div className="text-left">
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-green-200 bg-clip-text text-transparent">
-                  Join DataSpeak
+                  Join DataTalk
                 </h1>
                 <p className="text-gray-300 text-sm">Create your account to get started</p>
               </div>

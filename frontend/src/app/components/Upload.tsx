@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
+import { Database, CloudUpload, FileText, CheckCircle, AlertCircle, X, Loader2, DatabaseBackup, ChevronDown } from "lucide-react";
 
 interface UploadedFile {
   id: string;
@@ -24,8 +25,8 @@ export default function UploadCard() {
   const [connecting, setConnecting] = useState(false);
   const [connectionError, setConnectionError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [filesDropdownOpen, setFilesDropdownOpen] = useState(false);
-  const [connectionsDropdownOpen, setConnectionsDropdownOpen] = useState(false);
+  const [filesDropdownOpen, setFilesDropdownOpen] = useState(true);
+  const [connectionsDropdownOpen, setConnectionsDropdownOpen] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -43,9 +44,9 @@ export default function UploadCard() {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
-  // Load existing files and database connection on mount
   useEffect(() => {
     loadPersistedData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadPersistedData = async () => {
@@ -72,7 +73,7 @@ export default function UploadCard() {
         setUploadedFiles(loadedFiles);
       }
 
-      // Load database connection
+      // Load database connection details
       const dbResponse = await fetch('http://localhost:8000/api/database-url', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -107,13 +108,11 @@ export default function UploadCard() {
 
     setUploading(true);
 
-    // Create FormData and append all files
     const formData = new FormData();
     Array.from(files).forEach((file) => {
       formData.append('files', file);
     });
 
-    // Add files to state with 'uploading' status
     const newFiles: UploadedFile[] = Array.from(files).map((file) => ({
       id: `${Date.now()}-${Math.random()}`,
       name: file.name,
@@ -135,7 +134,6 @@ export default function UploadCard() {
       const data = await response.json();
 
       if (response.ok) {
-        // Update file status to uploaded
         setUploadedFiles((prev) =>
           prev.map((file) =>
             newFiles.some((nf) => nf.id === file.id)
@@ -143,9 +141,9 @@ export default function UploadCard() {
               : file
           )
         );
-        console.log('Files uploaded successfully:', data);
+        // Refresh sources lists after successful file processing
+        loadPersistedData();
       } else {
-        // Update file status to error
         setUploadedFiles((prev) =>
           prev.map((file) =>
             newFiles.some((nf) => nf.id === file.id)
@@ -157,7 +155,6 @@ export default function UploadCard() {
       }
     } catch (error) {
       console.error('Upload error:', error);
-      // Update file status to error
       setUploadedFiles((prev) =>
         prev.map((file) =>
           newFiles.some((nf) => nf.id === file.id)
@@ -173,7 +170,6 @@ export default function UploadCard() {
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     handleFileUpload(e.target.files);
-    // Reset input so same file can be selected again
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -229,7 +225,6 @@ export default function UploadCard() {
       const data = await response.json();
 
       if (response.ok) {
-        // Update connection to the list (replace existing if any)
         const newConnection = {
           id: 1,
           name: dbUrl.trim(),
@@ -239,7 +234,6 @@ export default function UploadCard() {
         setConnections([newConnection]);
         setApiKey('');
         setConnectionError('');
-        console.log('Database URL saved successfully:', data);
       } else {
         setConnectionError(data.detail || 'Failed to connect database');
       }
@@ -256,7 +250,6 @@ export default function UploadCard() {
     if (!token) return;
 
     try {
-      // Clear database URL on backend
       await fetch('http://localhost:8000/api/database-url', {
         method: 'POST',
         headers: {
@@ -285,6 +278,11 @@ export default function UploadCard() {
 
       if (response.ok) {
         setUploadedFiles(uploadedFiles.filter(file => file.name !== filename));
+        // Reset DB Connection URL if the file deleted was their active database SQLite session
+        if (dbUrl && dbUrl.includes(filename)) {
+          setDbUrl('');
+          setConnections([]);
+        }
       } else {
         alert('Failed to delete file');
       }
@@ -297,294 +295,205 @@ export default function UploadCard() {
   const getFileStatusIcon = (status: UploadedFile['status']) => {
     switch (status) {
       case 'uploading':
-        return (
-          <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        );
+        return <Loader2 className="w-4 h-4 animate-spin text-blue-400" />;
       case 'uploaded':
-        return (
-          <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-        );
+        return <CheckCircle className="w-4 h-4 text-emerald-400" />;
       case 'error':
-        return (
-          <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </div>
-        );
+        return <AlertCircle className="w-4 h-4 text-red-400" />;
     }
   };
 
   const getFileStatusColor = (status: UploadedFile['status']) => {
     switch (status) {
       case 'uploading':
-        return 'from-blue-50 to-blue-50 border-blue-200/60';
+        return 'from-blue-950/20 to-indigo-950/20 border-blue-500/20 text-blue-300';
       case 'uploaded':
-        return 'from-green-50 to-emerald-50 border-green-200/60';
+        return 'from-emerald-950/20 to-green-950/20 border-emerald-500/20 text-emerald-300';
       case 'error':
-        return 'from-red-50 to-red-50 border-red-200/60';
+        return 'from-red-950/20 to-red-950/20 border-red-500/20 text-red-300';
     }
   };
 
   if (loading) {
     return (
-      <div className="bg-gradient-to-br from-white to-blue-50/30 rounded-3xl shadow-2xl border border-slate-200/60 w-full max-w-lg mx-auto p-8 backdrop-blur-sm">
-        <div className="flex items-center justify-center h-64">
-          <div className="flex items-center gap-3 text-slate-500">
-            <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-sm">Loading your sources...</span>
-          </div>
+      <div className="bg-slate-900/40 border border-white/5 rounded-2xl shadow-2xl w-full h-full p-6 flex flex-col justify-center items-center backdrop-blur-md">
+        <div className="flex items-center gap-2.5 text-slate-400 text-xs">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span>Synchronizing data sources...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gradient-to-br from-white to-blue-50/30 rounded-3xl shadow-2xl border border-slate-200/60 w-full max-w-lg mx-auto p-8 space-y-8 backdrop-blur-sm">
-      {/* Header */}
-      <div className="text-center">
-        <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
+    <div className="bg-slate-900/40 border border-white/5 rounded-2xl shadow-2xl w-full h-full p-6 space-y-6 backdrop-blur-md overflow-y-auto relative flex flex-col justify-between">
+      
+      <div className="space-y-6">
+        {/* Title */}
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-white flex items-center gap-2">
+            <Database className="w-4 h-4 text-blue-400" />
+            Workspace Sources
+          </h2>
+          <p className="text-[10px] text-slate-400 mt-0.5">Manage connected databases & RAG documents</p>
         </div>
-        <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
-          Connect Sources
-        </h2>
-        <p className="text-slate-500 mt-2 font-medium">Upload documents and connect data sources</p>
-      </div>
 
-      {/* Document Upload Section */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-          <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          Documents
-        </h3>
-        
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept=".pdf,.doc,.docx,.txt"
-          onChange={handleFileInputChange}
-          className="hidden"
-        />
-        
-        {/* Upload Area */}
-        <div 
-          onClick={handleClick}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 cursor-pointer group backdrop-blur-sm ${
-            isDragging
-              ? 'border-blue-500 bg-blue-100/50'
-              : 'border-slate-300 hover:border-blue-400 bg-white/50 hover:bg-blue-50/30'
-          } ${uploading ? 'pointer-events-none opacity-50' : ''}`}
-        >
-          <svg className={`w-12 h-12 mx-auto mb-4 transition-colors ${
-            isDragging ? 'text-blue-500' : 'text-slate-400 group-hover:text-blue-500'
-          }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
-          <p className="text-sm text-slate-600 mb-3 font-medium">
-            {isDragging ? 'Drop files here' : 'Drop PDF files here or click to browse'}
-          </p>
-          <button 
-            type="button"
-            className="text-sm bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-2 rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl"
+        {/* Drag and Drop Zone */}
+        <div className="space-y-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept=".pdf,.txt,.md,.csv,.db,.sqlite"
+            onChange={handleFileInputChange}
+            className="hidden"
+          />
+          
+          <div 
+            onClick={handleClick}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            className={`border border-dashed rounded-xl p-6 text-center transition-all duration-300 cursor-pointer backdrop-blur-sm ${
+              isDragging
+                ? 'border-blue-500 bg-blue-950/10'
+                : 'border-white/10 hover:border-white/20 bg-slate-950/20 hover:bg-slate-950/30'
+            } ${uploading ? 'pointer-events-none opacity-40' : ''}`}
           >
-            {uploading ? 'Uploading...' : 'Browse Files'}
-          </button>
+            <CloudUpload className={`w-8 h-8 mx-auto mb-3 transition-colors ${
+              isDragging ? 'text-blue-400' : 'text-slate-500'
+            }`} />
+            <p className="text-xs text-slate-400 mb-2 font-medium">
+              {isDragging ? 'Drop files here' : 'Drop PDF, TXT, MD, CSV, or DB/SQLITE files here'}
+            </p>
+            <span className="text-[10px] text-slate-500 font-semibold px-2 py-1 bg-white/5 border border-white/10 rounded-lg">
+              {uploading ? 'Processing...' : 'Browse Local Files'}
+            </span>
+          </div>
         </div>
 
-        {/* Uploaded Files Dropdown Button */}
-        {uploadedFiles.length > 0 && (
-          <div className="flex justify-center">
+        {/* Dynamic Database Input Section */}
+        <div className="space-y-3 pt-3 border-t border-white/5">
+          <h3 className="text-[11px] font-bold text-slate-400 flex items-center gap-1.5 uppercase tracking-wide">
+            <DatabaseBackup className="w-3.5 h-3.5" /> Database URL mapping
+          </h3>
+          
+          <div className="space-y-3">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="postgresql://user:pass@host:port/dbname"
+                value={dbUrl}
+                onChange={(e) => setDbUrl(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-950/60 border border-white/5 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 text-xs transition-all"
+              />
+            </div>
+            
+            {/* Active Database Status Banner */}
+            <div className={`p-3.5 rounded-xl border text-xs shadow-sm transition-all duration-300 ${
+              dbUrl && !dbUrl.includes('datatalk_demo.db')
+                ? 'bg-emerald-950/15 border-emerald-500/20 text-emerald-300'
+                : 'bg-blue-950/15 border-blue-500/20 text-blue-300'
+            }`}>
+              <div className="flex items-start gap-2.5">
+                <div className="relative mt-0.5">
+                  <div className={`w-2.5 h-2.5 rounded-full ${
+                    dbUrl && !dbUrl.includes('datatalk_demo.db') ? 'bg-green-500' : 'bg-blue-500'
+                  } shadow-sm`}></div>
+                  <div className={`absolute inset-0 rounded-full ${
+                    dbUrl && !dbUrl.includes('datatalk_demo.db') ? 'bg-green-500' : 'bg-blue-500'
+                  } animate-ping opacity-60`}></div>
+                </div>
+                <div className="flex-1">
+                  <p className="font-bold">
+                    {dbUrl && !dbUrl.includes('datatalk_demo.db') 
+                      ? 'Connected to Active Database' 
+                      : 'Active Database: Fictional Company (Demo)'}
+                  </p>
+                  <p className="text-[10px] mt-1 opacity-80 leading-relaxed font-mono truncate">
+                    {dbUrl && !dbUrl.includes('datatalk_demo.db')
+                      ? dbUrl.split('@')[1] || dbUrl
+                      : 'Tables: employee, department, project, employee_project'}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {connectionError && (
+              <div className="p-2.5 bg-red-950/15 border border-red-500/20 rounded-xl text-red-400 text-[11px] flex items-center gap-2">
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>{connectionError}</span>
+              </div>
+            )}
+            
             <button
-              onClick={() => setFilesDropdownOpen(!filesDropdownOpen)}
-              className="text-sm bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-3 rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl flex items-center gap-2"
+              onClick={handleConnect}
+              disabled={!dbUrl.trim() || connecting}
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-xl transition-all disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-xs font-semibold shadow-md flex items-center justify-center gap-1.5"
             >
-              {filesDropdownOpen ? 'Hide Files' : 'Show Files'} ({uploadedFiles.length})
-              <svg 
-                className={`w-4 h-4 transition-transform ${filesDropdownOpen ? 'rotate-180' : ''}`} 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+              {connecting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              <span>{connections.length > 0 ? 'Update Connection String' : 'Map Connection String'}</span>
             </button>
           </div>
-        )}
-
-        {/* Uploaded Files Dropdown */}
-        {uploadedFiles.length > 0 && filesDropdownOpen && (
-          <div className="space-y-3 max-h-60 overflow-y-auto">
-            {uploadedFiles.map((file) => (
-              <div key={file.id} className={`flex items-center justify-between p-4 bg-gradient-to-r rounded-xl border shadow-sm ${getFileStatusColor(file.status)}`}>
-                <div className="flex items-center gap-3">
-                  {getFileStatusIcon(file.status)}
-                  <div>
-                    <p className={`text-sm font-semibold ${
-                      file.status === 'uploaded' ? 'text-green-800' : 
-                      file.status === 'error' ? 'text-red-800' : 
-                      'text-blue-800'
-                    }`}>
-                      {file.name}
-                    </p>
-                    <p className={`text-xs font-medium ${
-                      file.status === 'uploaded' ? 'text-green-600' : 
-                      file.status === 'error' ? 'text-red-600' : 
-                      'text-blue-600'
-                    }`}>
-                      {file.size} {file.status === 'uploading' && '• Uploading...'}
-                    </p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => removeFile(file.name)}
-                  className="w-8 h-8 bg-white border border-slate-200 rounded-lg flex items-center justify-center hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-all duration-200 shadow-sm"
-                  disabled={file.status === 'uploading'}
-                >
-                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Database Connection Section */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-          <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-          </svg>
-          Data Sources
-        </h3>
-        
-        <div className="space-y-4">
-          <div className="relative">
-            <svg className="w-5 h-5 text-slate-400 absolute left-4 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Database URL"
-              value={dbUrl}
-              onChange={(e) => setDbUrl(e.target.value)}
-              className="text-slate-800 w-full pl-12 pr-4 py-4 border border-slate-300/80 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white/80 backdrop-blur-sm placeholder-slate-500 hover:border-slate-400 transition-all duration-300 shadow-sm"
-            />
-          </div>
-          
-          {/* Error Message */}
-          {connectionError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                {connectionError}
-              </div>
-            </div>
-          )}
-          
-          <button
-            onClick={handleConnect}
-            disabled={!dbUrl.trim() || connecting}
-            className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white py-4 rounded-2xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 disabled:from-slate-300 disabled:to-slate-400 disabled:cursor-not-allowed text-sm font-semibold shadow-lg hover:shadow-xl disabled:shadow-md flex items-center justify-center gap-2"
-          >
-            {connecting ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Connecting...
-              </>
-            ) : (
-              connections.length > 0 ? 'Update Source' : 'Connect Source'
-            )}
-          </button>
         </div>
-      </div>
 
-      {/* Connected Sources Dropdown Button */}
-      {connections.length > 0 && (
-        <div className="flex justify-center">
-          <button
-            onClick={() => setConnectionsDropdownOpen(!connectionsDropdownOpen)}
-            className="text-sm bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-3 rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl flex items-center gap-2"
-          >
-            {connectionsDropdownOpen ? 'Hide Connections' : 'Show Connections'} ({connections.length})
-            <svg 
-              className={`w-4 h-4 transition-transform ${connectionsDropdownOpen ? 'rotate-180' : ''}`} 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
+        {/* Uploaded Documents List */}
+        {uploadedFiles.length > 0 && (
+          <div className="space-y-3 pt-3 border-t border-white/5">
+            <button
+              onClick={() => setFilesDropdownOpen(!filesDropdownOpen)}
+              className="w-full flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wide cursor-pointer hover:text-white transition-colors"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-        </div>
-      )}
+              <span className="flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Uploaded documents ({uploadedFiles.length})</span>
+              <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${filesDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
 
-      {/* Connected Sources Dropdown */}
-      {connections.length > 0 && connectionsDropdownOpen && (
-        <div className="space-y-3 max-h-60 overflow-y-auto">
-          {connections.map((connection) => (
-            <div key={connection.id} className="flex items-center justify-between gap-3 p-4 bg-white/80 backdrop-blur-sm rounded-xl border border-slate-200/60 shadow-sm">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="relative flex-shrink-0">
-                  <div className={`w-3 h-3 rounded-full ${connection.status === 'connected' ? 'bg-green-500' : 'bg-red-500'} shadow-sm`}></div>
-                  <div className={`absolute inset-0 rounded-full ${connection.status === 'connected' ? 'bg-green-500' : 'bg-red-500'} animate-ping`}></div>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-slate-800 truncate" title={connection.name}>
-                    {connection.name}
-                  </p>
-                  <p className="text-xs text-slate-500 font-medium capitalize">{connection.type} connection</p>
-                </div>
+            {filesDropdownOpen && (
+              <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                {uploadedFiles.map((file) => (
+                  <div key={file.id} className={`flex items-center justify-between p-2.5 bg-white/[0.01] rounded-xl border shadow-sm ${getFileStatusColor(file.status)}`}>
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      {getFileStatusIcon(file.status)}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold truncate">
+                          {file.name}
+                        </p>
+                        <p className="text-[9px] opacity-70">
+                          {file.size} {file.status === 'uploading' && '• Processing vectors...'}
+                        </p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => removeFile(file.name)}
+                      className="p-1 rounded-lg bg-slate-950/20 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-white/5 transition-all disabled:opacity-40"
+                      disabled={file.status === 'uploading'}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
               </div>
-              <button 
-                onClick={() => removeConnection(connection.id)}
-                className="w-8 h-8 bg-white border border-slate-200 rounded-lg flex items-center justify-center hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-all duration-200 shadow-sm flex-shrink-0"
-                title="Remove connection"
-              >
-                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+            )}
+          </div>
+        )}
+      </div>
 
-      {/* Connection Status */}
-      <div className="flex items-center justify-center gap-3 text-sm font-medium pt-4 border-t border-slate-200/60">
+      {/* Footer Connection Status indicator */}
+      <div className="flex items-center justify-center gap-2 text-xs font-semibold pt-4 border-t border-white/5 text-slate-400 mt-6">
         {connections.length > 0 || uploadedFiles.length > 0 ? (
           <>
-            <div className="w-3 h-3 bg-green-500 rounded-full shadow-sm"></div>
-            <span className="text-green-700">
+            <div className="w-2 h-2 bg-green-500 rounded-full shadow-sm shadow-green-500/50"></div>
+            <span className="text-green-400/90">
               {[
-                connections.length > 0 && `${connections.length} database`,
-                uploadedFiles.length > 0 && `${uploadedFiles.length} file${uploadedFiles.length !== 1 ? 's' : ''}`
+                connections.length > 0 && `${connections.length} custom DB mapped`,
+                uploadedFiles.length > 0 && `${uploadedFiles.length} file${uploadedFiles.length !== 1 ? 's' : ''} active`
               ].filter(Boolean).join(' • ')}
             </span>
           </>
         ) : (
           <>
-            <div className="w-3 h-3 bg-amber-500 rounded-full shadow-sm"></div>
-            <span className="text-amber-700">No sources connected</span>
+            <div className="w-2 h-2 bg-amber-500 rounded-full shadow-sm shadow-amber-500/50 animate-pulse"></div>
+            <span className="text-amber-400/90">Self-contained demo session active</span>
           </>
         )}
       </div>

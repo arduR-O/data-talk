@@ -149,7 +149,7 @@ export default function LoginPage() {
               </svg>
             </div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
-              DataSpeak
+              DataTalk
             </h1>
             <p className="text-gray-300 mt-2">Sign in to your account</p>
           </motion.div>
@@ -278,7 +278,7 @@ export default function LoginPage() {
             className="mt-8 text-center"
           >
             <p className="text-gray-400">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <Link 
                 href="/signup" 
                 className="text-blue-400 hover:text-blue-300 font-semibold transition-colors duration-300"

@@ -2,11 +2,19 @@
 
 import React, { useEffect, useState } from 'react';
 import axios from "axios";
+import { Sparkles, Trash2, Send, Brain, Terminal, ChevronDown, Bot } from "lucide-react";
 
 interface Message {
   type: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: string;
+  routing?: string;
+  debug_logs?: Array<{
+    timestamp: string;
+    level: string;
+    message: string;
+    data?: Record<string, any>;
+  }>;
 }
 
 export default function Inference() {
@@ -14,7 +22,7 @@ export default function Inference() {
   const [responses, setResponses] = useState<Message[]>([
     {
       type: 'system',
-      content: 'Welcome to your AI Research Assistant. I\'m ready to analyze your documents and answer your questions with intelligent, contextual responses.',
+      content: "Welcome to DataTalk workspace. I am your agentic assistant, ready to write SQL queries against your databases and retrieve insights from your text/PDF documents.",
       timestamp: new Date().toLocaleTimeString()
     }
   ]);
@@ -23,29 +31,25 @@ export default function Inference() {
   const [isClearing, setIsClearing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Get auth token from localStorage or sessionStorage
   const getAuthToken = (): string | null => {
     if (typeof window === 'undefined') return null;
     return localStorage.getItem('token') || sessionStorage.getItem('token');
   };
 
-  // Format timestamp from ISO string or return as is
   const formatTimestamp = (timestamp: string): string => {
     try {
       const date = new Date(timestamp);
       if (!isNaN(date.getTime())) {
         return date.toLocaleTimeString();
       }
-    } catch (e) {
-      // If parsing fails, return as is
-    }
+    } catch (e) {}
     return timestamp;
   };
 
-  // Load chat history on mount
   useEffect(() => {
     setIsClient(true);
     loadChatHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadChatHistory = async () => {
@@ -63,7 +67,6 @@ export default function Inference() {
       });
 
       if (response.data.messages && response.data.messages.length > 0) {
-        // Convert database messages to display format
         const formattedMessages: Message[] = response.data.messages.map((msg: any) => ({
           type: msg.type as 'user' | 'assistant' | 'system',
           content: msg.content,
@@ -72,18 +75,16 @@ export default function Inference() {
 
         setResponses(formattedMessages);
       } else {
-        // Keep welcome message if no history
         setResponses([
           {
             type: 'system',
-            content: 'Welcome to your AI Research Assistant. I\'m ready to analyze your documents and answer your questions with intelligent, contextual responses.',
+            content: "Welcome to DataTalk workspace. I am your agentic assistant, ready to write SQL queries against your databases and retrieve insights from your text/PDF documents.",
             timestamp: new Date().toLocaleTimeString()
           }
         ]);
       }
     } catch (error: any) {
       console.error('Failed to load chat history:', error);
-      // Keep welcome message on error
     } finally {
       setIsLoadingHistory(false);
     }
@@ -108,11 +109,10 @@ export default function Inference() {
         }
       });
 
-      // Reset to welcome message
       setResponses([
         {
           type: 'system',
-          content: 'Welcome to your AI Research Assistant. I\'m ready to analyze your documents and answer your questions with intelligent, contextual responses.',
+          content: "Welcome to DataTalk workspace. I am your agentic assistant, ready to write SQL queries against your databases and retrieve insights from your text/PDF documents.",
           timestamp: new Date().toLocaleTimeString()
         }
       ]);
@@ -124,7 +124,6 @@ export default function Inference() {
     }
   };
 
-  // Minimal markdown formatter: supports **bold** and escapes HTML
   const renderMarkdownToHtml = (text: string) => {
     if (!text) return '';
     const escapeHtml = (s: string) =>
@@ -136,8 +135,9 @@ export default function Inference() {
         .replace(/'/g, "&#39;");
     const escaped = escapeHtml(text);
    
-    const withBold = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold">$1</strong>');
-    return withBold;
+    const withBold = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold text-white">$1</strong>');
+    const withCode = withBold.replace(/`([^`]+)`/g, '<code class="bg-white/10 px-1.5 py-0.5 rounded text-cyan-400 font-mono text-xs border border-white/5">$1</code>');
+    return withCode;
   };
 
   const handleSendQuery = async () => {
@@ -172,7 +172,9 @@ export default function Inference() {
       const aiResponse: Message = {
         type: 'assistant',
         content: response.data.response,
-        timestamp: new Date().toLocaleTimeString()
+        timestamp: new Date().toLocaleTimeString(),
+        routing: response.data.routing,
+        debug_logs: response.data.debug_logs
       };
       setResponses(prev => [...prev, aiResponse]);
       
@@ -190,99 +192,69 @@ export default function Inference() {
   };
 
   return (
-    <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-3xl shadow-2xl border border-slate-200/60 w-full max-w-4xl mx-auto flex flex-col h-[700px] backdrop-blur-sm">
+    <div className="bg-slate-900/40 border border-white/5 rounded-2xl shadow-2xl flex flex-col h-full w-full backdrop-blur-md overflow-hidden relative">
+      
       {/* Header */}
-      <div className="border-b border-slate-200/60 px-8 py-6 bg-white/80 backdrop-blur-sm rounded-t-3xl">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 flex-1">
-            <div className="relative">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center shadow-lg">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-              </div>
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white shadow-sm"></div>
-            </div>
-            <div className="flex-1">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
-                AI Research Assistant
-              </h2>
-              <p className="text-slate-500 text-sm font-medium">Intelligent conversation with your documents</p>
-            </div>
-          </div>
-          <button
-            onClick={handleClearHistory}
-            disabled={isClearing || isLoadingHistory || responses.length <= 1}
-            className="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-50 flex items-center gap-2 border border-red-200 hover:border-red-300"
-            title="Clear chat history"
-          >
-            {isClearing ? (
-              <>
-                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>Clearing...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                <span>Clear History</span>
-              </>
-            )}
-          </button>
+      <div className="border-b border-white/5 px-6 py-4 bg-slate-950/20 flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-white flex items-center gap-2">
+            <Bot className="w-4 h-4 text-blue-400" />
+            AI Workspace Agent
+          </h2>
+          <p className="text-[10px] text-slate-400 mt-0.5">Observe reasoning steps & dynamic table querying</p>
         </div>
+        
+        <button
+          onClick={handleClearHistory}
+          disabled={isClearing || isLoadingHistory || responses.length <= 1}
+          className="p-1.5 rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          title="Clear chat history"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
       </div>
 
-      {/* Chat Messages Area */}
-      <div className="flex-1 p-8 overflow-y-auto bg-gradient-to-b from-white/50 to-blue-50/30">
+      {/* Messages Feed */}
+      <div className="flex-1 p-6 overflow-y-auto space-y-6 bg-slate-950/10">
         {isLoadingHistory ? (
           <div className="flex items-center justify-center h-full">
-            <div className="flex items-center gap-3 text-slate-500">
-              <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-sm">Loading chat history...</span>
+            <div className="flex items-center gap-2.5 text-slate-400 text-xs">
+              <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+              <span>Loading workspace conversation...</span>
             </div>
           </div>
         ) : (
-          <div className="space-y-6 max-w-4xl mx-auto">
+          <div className="space-y-6 max-w-5xl mx-auto">
             {responses.map((message, index) => (
               <div key={index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] flex gap-4 ${message.type === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                  {/* Avatar */}
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg ${
+                <div className={`max-w-[85%] flex gap-3 ${message.type === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                  
+                  {/* Icon */}
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg ${
                     message.type === 'user' 
-                      ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
+                      ? 'bg-blue-600' 
                       : message.type === 'system'
-                      ? 'bg-gradient-to-br from-amber-400 to-orange-500'
-                      : 'bg-gradient-to-br from-slate-600 to-slate-700'
+                      ? 'bg-amber-600/20 border border-amber-500/30'
+                      : 'bg-slate-800 border border-white/5'
                   }`}>
                     {message.type === 'user' ? (
-                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
+                      <div className="text-white text-xs font-bold">U</div>
                     ) : message.type === 'system' ? (
-                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
+                      <Terminal className="w-3.5 h-3.5 text-amber-400" />
                     ) : (
-                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                      </svg>
+                      <Bot className="w-4 h-4 text-blue-400" />
                     )}
                   </div>
                   
-                  {/* Message Content */}
-                  <div className={`rounded-3xl px-6 py-4 backdrop-blur-sm shadow-lg ${
+                  {/* Bubble */}
+                  <div className={`rounded-2xl px-4 py-3 shadow-md ${
                     message.type === 'user' 
-                      ? 'bg-gradient-to-br from-blue-500 to-purple-500 text-white' 
+                      ? 'bg-blue-600/90 text-white font-medium' 
                       : message.type === 'system'
-                      ? 'bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 text-amber-800'
-                      : 'bg-white/90 border border-slate-200/60 text-slate-800'
+                      ? 'bg-amber-950/10 border border-amber-500/20 text-amber-300/90'
+                      : 'bg-white/[0.03] border border-white/5 text-slate-200'
                   }`}>
                     {(() => {
-                      // Extract <think>...</think> content from assistant messages
                       const extractThink = (text: string) => {
                         if (!text) return { visible: '', think: '' };
                         const regex = /<think>([\s\S]*?)<\/think>/g;
@@ -299,18 +271,18 @@ export default function Inference() {
                         <>
                           {message.type === 'assistant' ? (
                             <div
-                              className="text-sm leading-relaxed whitespace-pre-wrap space-y-2"
+                              className="text-xs leading-relaxed whitespace-pre-wrap space-y-2"
                               dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(parsed.visible) }}
                             />
                           ) : (
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{parsed.visible}</p>
+                            <p className="text-xs leading-relaxed whitespace-pre-wrap">{parsed.visible}</p>
                           )}
                           {parsed.think && message.type === 'assistant' && (
-                            <details className="mt-3 group">
-                              <summary className="text-xs cursor-pointer select-none text-slate-500 hover:text-slate-700 transition-colors font-medium">
-                                🤔 View Reasoning
+                            <details className="mt-2.5 group">
+                              <summary className="text-[10px] cursor-pointer select-none text-slate-400 hover:text-slate-200 transition-colors font-semibold flex items-center gap-1">
+                                <Brain className="w-3 h-3 text-purple-400" /> View Agent Thoughts
                               </summary>
-                              <div className="mt-2 text-xs text-slate-600 bg-slate-50/80 border border-slate-200 rounded-xl p-3 whitespace-pre-wrap backdrop-blur-sm">
+                              <div className="mt-1.5 text-[10px] text-purple-300 bg-purple-950/10 border border-purple-500/10 rounded-xl p-2.5 whitespace-pre-wrap font-mono leading-relaxed">
                                 {parsed.think}
                               </div>
                             </details>
@@ -318,12 +290,43 @@ export default function Inference() {
                         </>
                       );
                     })()}
-                    {isClient && <p className={`text-xs mt-3 font-medium ${
-                      message.type === 'user' 
-                        ? 'text-blue-100' 
-                        : message.type === 'system'
-                        ? 'text-amber-600'
-                        : 'text-slate-500'
+                    
+                    {/* Execution Logs Drawer inside assistant bubbles */}
+                    {message.type === 'assistant' && message.debug_logs && message.debug_logs.length > 0 && (
+                      <details className="mt-3 group border border-white/5 rounded-xl bg-slate-950/20 overflow-hidden">
+                        <summary className="text-[10px] cursor-pointer select-none text-slate-400 hover:text-slate-200 transition-colors font-semibold px-3 py-2 flex items-center justify-between">
+                          <span className="flex items-center gap-1.5"><Terminal className="w-3 h-3 text-cyan-400" /> View Execution Logs ({message.routing || 'agent'})</span>
+                          <ChevronDown className="w-3 h-3 transform group-open:rotate-180 transition-transform duration-200 text-slate-500" />
+                        </summary>
+                        <div className="border-t border-white/5 p-3 space-y-2 font-mono text-[9px] leading-relaxed max-h-52 overflow-y-auto text-slate-300">
+                          {message.debug_logs.map((log, lIdx) => (
+                            <div key={lIdx} className="border-b border-white/5 last:border-0 pb-1.5 mb-1.5 last:pb-0 last:mb-0">
+                              <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                                <span className="text-slate-500">[{log.timestamp}]</span>
+                                <span className={`px-1 py-0.5 rounded font-bold uppercase text-[8px] ${
+                                  log.level === 'TOOL' ? 'bg-purple-900/30 text-purple-300 border border-purple-800/30' :
+                                  log.level === 'SQL' ? 'bg-cyan-900/30 text-cyan-300 border border-cyan-800/30' :
+                                  log.level === 'RESULT' ? 'bg-emerald-900/30 text-emerald-300 border border-emerald-800/30' :
+                                  log.level === 'ERROR' ? 'bg-red-900/30 text-red-300 border border-red-800/30' :
+                                  'bg-slate-800 text-slate-300 border border-white/5'
+                                }`}>
+                                  {log.level}
+                                </span>
+                                <span className="font-semibold text-slate-100">{log.message}</span>
+                              </div>
+                              {log.data && (
+                                <pre className="bg-slate-950 text-slate-400 rounded-lg p-2 mt-1 overflow-x-auto text-[8px] max-w-full whitespace-pre-wrap break-all border border-white/5">
+                                  {JSON.stringify(log.data, null, 2)}
+                                </pre>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                    
+                    {isClient && <p className={`text-[9px] mt-2 font-medium ${
+                      message.type === 'user' ? 'text-blue-200/70' : 'text-slate-500'
                     }`}>
                       {message.timestamp}
                     </p>}
@@ -332,19 +335,16 @@ export default function Inference() {
               </div>
             ))}
             
-            {/* Loading indicator */}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="max-w-[85%] flex gap-4 flex-row">
-                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg bg-gradient-to-br from-slate-600 to-slate-700">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
+                <div className="max-w-[85%] flex gap-3 flex-row">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg bg-slate-800 border border-white/5">
+                    <Bot className="w-4 h-4 text-blue-400 animate-pulse" />
                   </div>
-                  <div className="rounded-3xl px-6 py-4 backdrop-blur-sm shadow-lg bg-white/90 border border-slate-200/60 text-slate-800">
-                    <div className="flex items-center gap-3">
-                      <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
-                      <span className="text-sm text-slate-600">Thinking...</span>
+                  <div className="rounded-2xl px-4 py-3 bg-white/[0.03] border border-white/5 text-slate-200">
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className="w-3.5 h-3.5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-slate-400">Agent thinking...</span>
                     </div>
                   </div>
                 </div>
@@ -354,46 +354,27 @@ export default function Inference() {
         )}
       </div>
 
-      {/* Input Area */}
-      <div className="border-t border-slate-200/60 p-8 bg-white/60 backdrop-blur-sm rounded-b-3xl">
-        <div className="flex gap-4 flex-wrap">
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleSendQuery()}
-              placeholder="Ask a question about your documents..."
-              disabled={isLoading}
-              className="w-full px-6 py-4 border border-slate-300/80 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white/90 text-slate-900 placeholder-slate-500 hover:border-slate-400 transition-all duration-300 shadow-lg backdrop-blur-sm pr-12 disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm">
-              ⏎ Enter
-            </div>
-          </div>
+      {/* Input Field */}
+      <div className="border-t border-white/5 p-4 bg-slate-950/20">
+        <div className="flex gap-3 max-w-5xl mx-auto">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleSendQuery()}
+            placeholder="Ask a question about connected databases or uploaded documents..."
+            disabled={isLoading}
+            className="flex-1 px-4 py-3 bg-slate-950/60 border border-white/5 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          />
           <button
             onClick={handleSendQuery}
             disabled={!query.trim() || isLoading}
-            className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-8 py-4 rounded-2xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 disabled:from-slate-300 disabled:to-slate-400 disabled:cursor-not-allowed flex items-center gap-3 font-semibold shadow-lg hover:shadow-xl disabled:shadow-md min-w-[120px] justify-center"
+            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl transition-all disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed flex items-center gap-1.5 text-xs font-semibold shadow-lg shadow-blue-500/10"
           >
-            {isLoading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Thinking...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                </svg>
-                <span>Send</span>
-              </>
-            )}
+            <Send className="w-3.5 h-3.5" />
+            <span>Ask</span>
           </button>
         </div>
-        <p className="text-xs text-slate-500 mt-4 text-center font-medium">
-          💡 Responses are generated based on your uploaded documents and data sources
-        </p>
       </div>
     </div>
   );
