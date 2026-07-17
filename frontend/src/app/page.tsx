@@ -1,13 +1,120 @@
 "use client";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Database, FileText, Bot, ArrowRight, Shield, Zap, Sparkles } from "lucide-react";
 
 export default function LandingPage() {
+  const [isMounted, setIsMounted] = useState(false);
   const [hoveredCard, setHoveredCard] = useState<number | null>(null);
+  
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mousePos = useRef({ x: -1000, y: -1000 });
 
-  // Curated gradient values to create the premium Gemini glowing mesh effect
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      mousePos.current = { x: e.clientX, y: e.clientY };
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, [isMounted]);
+
+  useEffect(() => {
+    if (!isMounted) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    const dotSpacing = 28; // Spacing between dots in pixels
+    const maxDistance = 140; // Glow reach radius
+
+    const draw = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      const cols = Math.ceil(width / dotSpacing);
+      const rows = Math.ceil(height / dotSpacing);
+
+      for (let c = 0; c < cols; c++) {
+        for (let r = 0; r < rows; r++) {
+          const x = c * dotSpacing;
+          const y = r * dotSpacing;
+
+          const dx = mousePos.current.x - x;
+          const dy = mousePos.current.y - y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          let radius = 1.0;
+          let color = "rgba(156, 163, 175, 0.07)"; // Default dim gray dot
+
+          if (dist < maxDistance) {
+            const factor = 1 - dist / maxDistance; // Proximity scaling factor: 1 at center, 0 at perimeter
+            radius = 1.0 + factor * 2.8; // Grow dot scale smoothly up to ~3.8px
+            
+            // Interpolate color values from slate-gray to bright glowing purple/indigo
+            const rVal = Math.round(99 + factor * 130);
+            const gVal = Math.round(102 + factor * 50);
+            const bVal = Math.round(241 + factor * 14);
+            const opacity = 0.07 + factor * 0.75;
+            
+            color = `rgba(${rVal}, ${gVal}, ${bVal}, ${opacity})`;
+          }
+
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+        }
+      }
+
+      animationFrameId = requestAnimationFrame(draw);
+    };
+
+    draw();
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [isMounted]);
+
+  // Server-rendered skeleton to match layout exactly and avoid hydration mismatches
+  if (!isMounted) {
+    return (
+      <main className="min-h-screen bg-[#030712] text-white flex flex-col justify-between items-center py-24">
+        <div className="flex-1 flex flex-col justify-center items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 animate-pulse flex items-center justify-center">
+            <span className="font-mono text-xl font-bold">DT</span>
+          </div>
+          <h1 className="text-2xl font-bold font-mono tracking-wider bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
+            DATATALK
+          </h1>
+        </div>
+      </main>
+    );
+  }
+
   const cardGlows = [
     "from-blue-500/30 to-cyan-500/30 shadow-blue-500/20",
     "from-purple-500/30 to-pink-500/30 shadow-purple-500/20",
@@ -17,9 +124,14 @@ export default function LandingPage() {
   return (
     <main className="min-h-screen flex flex-col justify-between bg-[#030712] text-white px-4 overflow-hidden relative">
       
-      {/* Animated Gemini aura mesh background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Soft, rotating color blobs to mimic Google Gemini's ambient light */}
+      {/* Interactive glowing dot field */}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full pointer-events-none z-0"
+      />
+
+      {/* Ambient color gradient blur meshes behind the dot field */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[10%] left-[20%] w-[500px] h-[500px] bg-gradient-to-r from-blue-600/10 to-indigo-500/10 rounded-full blur-[120px] animate-pulse-slow"></div>
         <div className="absolute bottom-[20%] right-[10%] w-[600px] h-[600px] bg-gradient-to-r from-purple-600/10 to-pink-500/10 rounded-full blur-[140px] animate-pulse-slow" style={{ animationDelay: "3s" }}></div>
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[300px] bg-cyan-500/5 rounded-full blur-[160px] rotate-12"></div>
@@ -99,7 +211,7 @@ export default function LandingPage() {
           </Link>
         </motion.div>
 
-        {/* Interactive Feature Cards showing the Gemini glowing fields on hover */}
+        {/* Interactive Feature Cards */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -129,7 +241,7 @@ export default function LandingPage() {
               onMouseLeave={() => setHoveredCard(null)}
               className="relative rounded-3xl p-8 bg-white/[0.02] border border-white/5 overflow-hidden transition-all duration-300 cursor-default"
             >
-              {/* Inner ambient light glow that becomes bright on card hover */}
+              {/* Inner ambient light glow */}
               <div
                 className={`absolute inset-0 bg-gradient-to-br transition-opacity duration-500 blur-2xl -z-10 opacity-0 ${
                   hoveredCard === idx ? "opacity-100" : ""
@@ -161,30 +273,6 @@ export default function LandingPage() {
           <span className="flex items-center gap-1.5"><Zap className="w-3.5 h-3.5" /> Fast LangGraph orchestration</span>
         </div>
       </footer>
-
-      {/* Floating particles background element */}
-      <div className="absolute inset-0 pointer-events-none">
-        {[...Array(15)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute w-1 h-1 bg-indigo-500/20 rounded-full"
-            initial={{
-              x: Math.random() * 1200,
-              y: Math.random() * 800,
-            }}
-            animate={{
-              y: [null, -40, 0],
-              opacity: [0, 0.8, 0],
-            }}
-            transition={{
-              duration: 4 + Math.random() * 4,
-              repeat: Infinity,
-              delay: Math.random() * 4,
-            }}
-            suppressHydrationWarning
-          />
-        ))}
-      </div>
 
       <style jsx global>{`
         @keyframes pulse-slow {
