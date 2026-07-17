@@ -4,6 +4,15 @@ import { motion } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 import { Database, FileText, Bot, ArrowRight, Shield, Zap, Sparkles } from "lucide-react";
 
+interface DotNode {
+  x: number;
+  y: number;
+  homeX: number;
+  homeY: number;
+  vx: number;
+  vy: number;
+}
+
 export default function LandingPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [hoveredCard, setHoveredCard] = useState<number | null>(null);
@@ -22,8 +31,16 @@ export default function LandingPage() {
       mousePos.current = { x: e.clientX, y: e.clientY };
     };
 
+    const handleMouseLeave = () => {
+      mousePos.current = { x: -1000, y: -1000 };
+    };
+
     window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseleave", handleMouseLeave);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseleave", handleMouseLeave);
+    };
   }, [isMounted]);
 
   useEffect(() => {
@@ -39,20 +56,16 @@ export default function LandingPage() {
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
 
-    const handleResize = () => {
-      if (!canvas) return;
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    };
+    const dotSpacing = 16; // Increased density spacing
+    const repulsionRadius = 80; // Tighter deflection radius
+    const repulsionStrength = 6.0; // Responsive push force
+    const springStiffness = 0.08; // Snappier elastic recall
+    const damping = 0.78; // Increased friction to eliminate wobble
+    
+    let dots: DotNode[] = [];
 
-    window.addEventListener("resize", handleResize);
-
-    const dotSpacing = 28; // Spacing between dots in pixels
-    const maxDistance = 140; // Glow reach radius
-
-    const draw = () => {
-      ctx.clearRect(0, 0, width, height);
-
+    const initGrid = () => {
+      dots = [];
       const cols = Math.ceil(width / dotSpacing);
       const rows = Math.ceil(height / dotSpacing);
 
@@ -60,32 +73,82 @@ export default function LandingPage() {
         for (let r = 0; r < rows; r++) {
           const x = c * dotSpacing;
           const y = r * dotSpacing;
-
-          const dx = mousePos.current.x - x;
-          const dy = mousePos.current.y - y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-
-          let radius = 1.0;
-          let color = "rgba(156, 163, 175, 0.07)"; // Default dim gray dot
-
-          if (dist < maxDistance) {
-            const factor = 1 - dist / maxDistance; // Proximity scaling factor: 1 at center, 0 at perimeter
-            radius = 1.0 + factor * 2.8; // Grow dot scale smoothly up to ~3.8px
-            
-            // Interpolate color values from slate-gray to bright glowing purple/indigo
-            const rVal = Math.round(99 + factor * 130);
-            const gVal = Math.round(102 + factor * 50);
-            const bVal = Math.round(241 + factor * 14);
-            const opacity = 0.07 + factor * 0.75;
-            
-            color = `rgba(${rVal}, ${gVal}, ${bVal}, ${opacity})`;
-          }
-
-          ctx.beginPath();
-          ctx.arc(x, y, radius, 0, Math.PI * 2);
-          ctx.fillStyle = color;
-          ctx.fill();
+          dots.push({
+            x,
+            y,
+            homeX: x,
+            homeY: y,
+            vx: 0,
+            vy: 0
+          });
         }
+      }
+    };
+
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+      initGrid();
+    };
+
+    window.addEventListener("resize", handleResize);
+    initGrid();
+
+    const draw = () => {
+      ctx.clearRect(0, 0, width, height);
+      const radSq = repulsionRadius * repulsionRadius;
+
+      for (let i = 0; i < dots.length; i++) {
+        const dot = dots[i];
+        
+        // Physics update: calculate squared distance first to optimize performance
+        const dx = dot.x - mousePos.current.x;
+        const dy = dot.y - mousePos.current.y;
+        const distSq = dx * dx + dy * dy;
+
+        let radius = 0.8;
+        let color = "rgba(156, 163, 175, 0.07)"; // Default dim gray dot
+
+        if (distSq < radSq) {
+          const dist = Math.sqrt(distSq);
+          const force = (repulsionRadius - dist) / repulsionRadius;
+          const angle = Math.atan2(dy, dx);
+          const push = force * repulsionStrength;
+          
+          dot.vx += Math.cos(angle) * push;
+          dot.vy += Math.sin(angle) * push;
+
+          // Proximity visual feedback
+          const factor = 1 - dist / repulsionRadius;
+          radius = 0.8 + factor * 2.2; // Smoothly scale up dot size
+          
+          const rVal = Math.round(99 + factor * 130);
+          const gVal = Math.round(102 + factor * 50);
+          const bVal = Math.round(241 + factor * 14);
+          const opacity = 0.07 + factor * 0.75;
+          color = `rgba(${rVal}, ${gVal}, ${bVal}, ${opacity})`;
+        }
+
+        // Apply spring-back force to home coordinates
+        const springX = (dot.homeX - dot.x) * springStiffness;
+        const springY = (dot.homeY - dot.y) * springStiffness;
+
+        dot.vx += springX;
+        dot.vy += springY;
+
+        // Apply damping
+        dot.vx *= damping;
+        dot.vy *= damping;
+
+        // Apply positions
+        dot.x += dot.vx;
+        dot.y += dot.vy;
+
+        ctx.beginPath();
+        ctx.arc(dot.x, dot.y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
       }
 
       animationFrameId = requestAnimationFrame(draw);
@@ -99,7 +162,7 @@ export default function LandingPage() {
     };
   }, [isMounted]);
 
-  // Server-rendered skeleton to match layout exactly and avoid hydration mismatches
+  // SSR Skeleton Layout
   if (!isMounted) {
     return (
       <main className="min-h-screen bg-[#030712] text-white flex flex-col justify-between items-center py-24">
@@ -124,13 +187,13 @@ export default function LandingPage() {
   return (
     <main className="min-h-screen flex flex-col justify-between bg-[#030712] text-white px-4 overflow-hidden relative">
       
-      {/* Interactive glowing dot field */}
+      {/* Elastic interactive grid canvas */}
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full pointer-events-none z-0"
       />
 
-      {/* Ambient color gradient blur meshes behind the dot field */}
+      {/* Ambient color gradient blur meshes */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[10%] left-[20%] w-[500px] h-[500px] bg-gradient-to-r from-blue-600/10 to-indigo-500/10 rounded-full blur-[120px] animate-pulse-slow"></div>
         <div className="absolute bottom-[20%] right-[10%] w-[600px] h-[600px] bg-gradient-to-r from-purple-600/10 to-pink-500/10 rounded-full blur-[140px] animate-pulse-slow" style={{ animationDelay: "3s" }}></div>
