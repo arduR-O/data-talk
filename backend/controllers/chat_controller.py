@@ -72,7 +72,8 @@ class ChatController:
                 'data': {
                     'response': answer,
                     'routing': routing,  # 'sql', 'rag', 'hybrid', or 'general'
-                    'resources': resources  # What resources are available
+                    'resources': resources,  # What resources are available
+                    'debug_logs': result.get('debug_logs', [])
                 },
                 'status_code': 200
             }

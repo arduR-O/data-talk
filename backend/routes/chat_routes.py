@@ -6,6 +6,8 @@ from services.vector_service import get_vector_service
 from typing import List, Optional
 from pathlib import Path
 from datetime import datetime
+import pandas as pd
+from sqlalchemy import create_engine
 
 router = APIRouter()
 chat_controller = ChatController()
@@ -38,16 +40,14 @@ async def chat_endpoint(
     chat_request: ChatRequest,
     authorization: str = Header(...)
 ):
-    """
-    Chat endpoint for AI responses - requires authentication.
-    Uses user's chat history and custom database URL if configured.
-    """
     user_id = get_user_id_from_token(authorization)
     result = chat_controller.process_message(user_id, chat_request.question)
     
     if result['success']:
         return {
-            "response": result['data']['response']
+            "response": result['data']['response'],
+            "routing": result['data'].get('routing'),
+            "debug_logs": result['data'].get('debug_logs')
         }
     else:
         raise HTTPException(
@@ -58,7 +58,6 @@ async def chat_endpoint(
 
 @router.get("/chat/history")
 async def get_chat_history(authorization: str = Header(...)):
-    """Get chat history for the authenticated user"""
     user_id = get_user_id_from_token(authorization)
     result = chat_controller.get_history(user_id)
     
@@ -75,7 +74,6 @@ async def get_chat_history(authorization: str = Header(...)):
 
 @router.delete("/chat/history")
 async def clear_chat_history(authorization: str = Header(...)):
-    """Clear chat history for the authenticated user"""
     user_id = get_user_id_from_token(authorization)
     result = chat_controller.clear_history(user_id)
     
@@ -96,10 +94,6 @@ async def save_database_url(
     db_request: DatabaseUrlRequest,
     authorization: str = Header(...)
 ):
-    """
-    Save or update the database URL for the authenticated user.
-    This allows users to connect their own databases for querying.
-    """
     user_id = get_user_id_from_token(authorization)
     
     try:
@@ -117,7 +111,6 @@ async def save_database_url(
 
 @router.get("/database-url")
 async def get_database_url(authorization: str = Header(...)):
-    """Get the configured database URL for the authenticated user"""
     user_id = get_user_id_from_token(authorization)
     
     try:
@@ -143,63 +136,90 @@ async def create_upload_files(
     authorization: str = Header(...),
     files: List[UploadFile] = File(...)
 ):
-    """
-    Save uploaded files into context/<user_id>/ directory and vectorize them.
-    
-    Accepts multiple files via multipart/form-data.
-    Files are streamed to disk and then vectorized in the background.
-    
-    Example:
-        Form field name: 'files'
-        Multiple files can be uploaded in a single request
-    """
     user_id = get_user_id_from_token(authorization)
     
-    # Go up from routes/ to backend/, then into context/
     base_dir = Path(__file__).resolve().parent.parent
     uploads_dir = base_dir / "context" / user_id
     uploads_dir.mkdir(parents=True, exist_ok=True)
     
     saved = []
-    vectorization_tasks = []
     
     for upload in files:
-        # Sanitize filename to avoid directory traversal
         filename = Path(upload.filename).name
         dest_path = uploads_dir / filename
         
-        # Stream write to avoid loading entire file into memory
+        # Read file chunks incrementally to keep memory profile low
         with open(dest_path, "wb") as out_file:
             while True:
-                chunk = await upload.read(1024 * 1024)  # 1MB chunks
+                chunk = await upload.read(1024 * 1024)
                 if not chunk:
                     break
                 out_file.write(chunk)
         
-        saved.append({
-            "filename": filename,
-            "path": str(dest_path)
-        })
+        ext = dest_path.suffix.lower()
         
-        # Schedule vectorization in background
-        vector_service = get_vector_service()
-        background_tasks.add_task(
-            vector_service.process_and_upload_document,
-            user_id,
-            str(dest_path),
-            filename
-        )
+        # Branch actions based on file extension
+        if ext in ['.db', '.sqlite']:
+            # Instantly point the active user DB to the uploaded SQLite file
+            file_db_url = f"sqlite:///{dest_path.resolve()}"
+            auth_controller.user_model.update_db_url(user_id, file_db_url)
+            saved.append({
+                "filename": filename,
+                "type": "database",
+                "db_url": file_db_url
+            })
+        elif ext == '.csv':
+            try:
+                db_url = auth_controller.user_model.get_db_url(user_id)
+                # Create a user-specific isolated SQLite DB if no db_url is currently set
+                if not db_url or 'datatalk_demo.db' in db_url:
+                    db_url = f"sqlite:///{uploads_dir.resolve()}/datatalk_user.db"
+                    auth_controller.user_model.update_db_url(user_id, db_url)
+                
+                # Sanitize the filename to ensure it conforms to SQLite table name parameters
+                table_name = dest_path.stem.lower()
+                table_name = "".join([c if c.isalnum() or c == '_' else '_' for c in table_name])
+                
+                df = pd.read_csv(dest_path)
+                engine = create_engine(db_url)
+                df.to_sql(table_name, con=engine, if_exists='replace', index=False)
+                
+                saved.append({
+                    "filename": filename,
+                    "type": "csv_table",
+                    "table_name": table_name,
+                    "db_url": db_url
+                })
+            except Exception as csv_err:
+                saved.append({
+                    "filename": filename,
+                    "type": "csv_error",
+                    "error": str(csv_err)
+                })
+        else:
+            saved.append({
+                "filename": filename,
+                "type": "document",
+                "path": str(dest_path)
+            })
+            
+            # Spin off the vectorization to a background thread to prevent endpoint timeout
+            vector_service = get_vector_service()
+            background_tasks.add_task(
+                vector_service.process_and_upload_document,
+                user_id,
+                str(dest_path),
+                filename
+            )
     
     return {
-        "message": f"Successfully uploaded {len(saved)} file(s). Vectorization in progress.",
-        "saved": saved,
-        "note": "Documents are being processed in the background and will be available for search shortly."
+        "message": f"Successfully uploaded {len(saved)} file(s). Data mapped.",
+        "saved": saved
     }
 
 
 @router.get("/uploadfiles/")
 async def list_uploaded_files(authorization: str = Header(...)):
-    """List all uploaded files for the authenticated user"""
     user_id = get_user_id_from_token(authorization)
     
     base_dir = Path(__file__).resolve().parent.parent
@@ -231,12 +251,11 @@ async def delete_uploaded_file(
     filename: str,
     authorization: str = Header(...)
 ):
-    """Delete a specific uploaded file and its vector embeddings for the authenticated user"""
     user_id = get_user_id_from_token(authorization)
     
     base_dir = Path(__file__).resolve().parent.parent
     uploads_dir = base_dir / "context" / user_id
-    file_path = uploads_dir / Path(filename).name  # Sanitize filename
+    file_path = uploads_dir / Path(filename).name
     
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
@@ -245,18 +264,28 @@ async def delete_uploaded_file(
         raise HTTPException(status_code=400, detail="Invalid file path")
     
     try:
-        # Delete from filesystem
         file_path.unlink()
         
-        # Delete from vector store
-        vector_service = get_vector_service()
-        vector_result = vector_service.delete_document(user_id, filename)
+        # Clear the database URL mapping if the deleted file was the active connection source
+        db_url = auth_controller.user_model.get_db_url(user_id)
+        if db_url and file_path.name in db_url:
+            auth_controller.user_model.update_db_url(user_id, "")
+            
+        vectors_deleted = False
+        deleted_count = 0
+        
+        # Only invoke deletion from the vector store if it was a vectorized text document
+        if file_path.suffix.lower() in ['.pdf', '.txt', '.md']:
+            vector_service = get_vector_service()
+            vector_result = vector_service.delete_document(user_id, filename)
+            vectors_deleted = vector_result.get("success", False)
+            deleted_count = vector_result.get("deleted_count", 0)
         
         return {
             "message": f"File '{filename}' deleted successfully",
             "file_deleted": True,
-            "vectors_deleted": vector_result.get("success", False),
-            "vectors_count": vector_result.get("deleted_count", "unknown")
+            "vectors_deleted": vectors_deleted,
+            "vectors_count": deleted_count
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -264,29 +293,25 @@ async def delete_uploaded_file(
 
 @router.get("/vectors/status")
 async def get_vector_status(authorization: str = Header(...)):
-    """Get vectorization status for the authenticated user's documents"""
     user_id = get_user_id_from_token(authorization)
     
     try:
         vector_service = get_vector_service()
         
-        # Get documents from filesystem
         base_dir = Path(__file__).resolve().parent.parent
         uploads_dir = base_dir / "context" / user_id
         
         fs_files = set()
         if uploads_dir.exists():
             for file_path in uploads_dir.iterdir():
-                if file_path.is_file() and file_path.suffix.lower() == '.pdf':
+                if file_path.is_file() and file_path.suffix.lower() in ['.pdf', '.txt', '.md']:
                     fs_files.add(file_path.name)
         
-        # Get documents from vector store
         vector_files = set(vector_service.list_user_documents(user_id))
         
-        # Compare
         vectorized = list(fs_files.intersection(vector_files))
         pending = list(fs_files - vector_files)
-        orphaned = list(vector_files - fs_files)  # In vectors but not in filesystem
+        orphaned = list(vector_files - fs_files)
         
         return {
             "total_files": len(fs_files),
@@ -300,8 +325,7 @@ async def get_vector_status(authorization: str = Header(...)):
             },
             "orphaned_vectors": {
                 "count": len(orphaned),
-                "files": orphaned,
-                "note": "These exist in vector store but not in filesystem"
+                "files": orphaned
             }
         }
     except Exception as e:
@@ -310,19 +334,11 @@ async def get_vector_status(authorization: str = Header(...)):
 
 @router.get("/dashboard")
 async def get_dashboard(authorization: str = Header(...)):
-    """
-    Get complete dashboard information for the authenticated user:
-    - Database connection status
-    - Uploaded files
-    - Chat history count
-    """
     user_id = get_user_id_from_token(authorization)
     
     try:
-        # Get database URL
         db_url = auth_controller.user_model.get_db_url(user_id)
         
-        # Get uploaded files
         base_dir = Path(__file__).resolve().parent.parent
         uploads_dir = base_dir / "context" / user_id
         
@@ -336,13 +352,12 @@ async def get_dashboard(authorization: str = Header(...)):
                         "uploaded_at": datetime.fromtimestamp(file_path.stat().st_mtime).isoformat()
                     })
         
-        # Get chat history count
         history_result = chat_controller.get_history(user_id)
         chat_count = len(history_result['data']['messages']) if history_result['success'] else 0
         
         return {
             "database": {
-                "connected": db_url is not None,
+                "connected": db_url is not None and db_url.strip() != "",
                 "url": db_url if db_url else None
             },
             "files": {

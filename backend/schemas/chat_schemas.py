@@ -5,6 +5,8 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
+    routing: Optional[str] = None
+    debug_logs: Optional[list] = None
 
 class DatabaseUrlRequest(BaseModel):
     db_url: str
