@@ -1,11 +1,12 @@
 import os
+import sqlite3
 from langchain_community.utilities import SQLDatabase
 from langchain_groq import ChatGroq
 from typing_extensions import TypedDict, Annotated
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.tools.sql_database.tool import QuerySQLDatabaseTool
 from langgraph.graph import START, StateGraph
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage, BaseMessage
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, BaseMessage
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 
@@ -17,36 +18,128 @@ llm = ChatGroq(
     temperature=0
 )
 
-def setup_employee_table(db):
-    db.run("""
-        CREATE TABLE IF NOT EXISTS employee (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(100),
-            department VARCHAR(50),
-            salary NUMERIC,
-            email VARCHAR(100),
-            join_date DATE
+def ensure_demo_db_seeded(db_url: str):
+    """Seed the database with sample data if it's a new or empty SQLite database"""
+    # Checking for specific substring to only target our default demo database
+    if 'datatalk_demo.db' not in db_url:
+        return
+        
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    context_dir = os.path.join(base_dir, 'context')
+    os.makedirs(context_dir, exist_ok=True)
+    db_path = os.path.join(context_dir, 'datatalk_demo.db')
+    
+    # We check file size as a simple heuristic to see if tables were already seeded
+    if os.path.exists(db_path) and os.path.getsize(db_path) > 10240:
+        return
+        
+    print(f"Seeding local SQLite demo database at: {db_path}")
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # 1. Departments table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS department (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE,
+            budget REAL,
+            manager_id INTEGER
         )
     """)
-    db.run("TRUNCATE TABLE employee RESTART IDENTITY")
-    employees = [
-        ("Alice", "HR", 50000, "alice@example.com", "2021-01-15"),
-        ("Bob", "Engineering", 75000, "bob@example.com", "2020-03-10"),
-        ("Charlie", "Finance", 60000, "charlie@example.com", "2022-07-25"),
-        ("Diana", "Marketing", 55000, "diana@example.com", "2019-11-05"),
-        ("Ethan", "Engineering", 80000, "ethan@example.com", "2021-08-19"),
-        ("Fiona", "Finance", 62000, "fiona@example.com", "2020-12-30"),
-        ("George", "HR", 52000, "george@example.com", "2022-04-14"),
-        ("Hannah", "Engineering", 78000, "hannah@example.com", "2019-09-21"),
-        ("Ian", "Marketing", 54000, "ian@example.com", "2021-06-11"),
-        ("Jane", "Finance", 61000, "jane@example.com", "2020-10-01"),
+    
+    # 2. Employees table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS employee (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            department_id INTEGER,
+            salary REAL,
+            email TEXT UNIQUE,
+            join_date TEXT,
+            FOREIGN KEY(department_id) REFERENCES department(id)
+        )
+    """)
+    
+    # 3. Projects table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS project (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            budget REAL,
+            start_date TEXT
+        )
+    """)
+    
+    # 4. Employee projects assignment table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS employee_project (
+            employee_id INTEGER,
+            project_id INTEGER,
+            role TEXT,
+            PRIMARY KEY(employee_id, project_id),
+            FOREIGN KEY(employee_id) REFERENCES employee(id),
+            FOREIGN KEY(project_id) REFERENCES project(id)
+        )
+    """)
+    
+    # Seed Departments
+    departments = [
+        ("Engineering", 500000.0),
+        ("Product", 250000.0),
+        ("Marketing", 150000.0),
+        ("Sales", 300000.0),
+        ("HR", 100000.0)
     ]
-    for name, dept, salary, email, join_date in employees:
-        db.run(f"""
-            INSERT INTO employee (name, department, salary, email, join_date)
-            VALUES ('{name}', '{dept}', {salary}, '{email}', '{join_date}')
-        """)
-    print("Employee table created and 10 records inserted.")
+    cursor.executemany("INSERT OR IGNORE INTO department (name, budget) VALUES (?, ?)", departments)
+    
+    # Seed Employees
+    employees = [
+        ("Alice Smith", 1, 95000.0, "alice@datatalk.ai", "2021-03-15"),
+        ("Bob Jones", 1, 105000.0, "bob@datatalk.ai", "2020-06-10"),
+        ("Charlie Brown", 2, 85000.0, "charlie@datatalk.ai", "2022-01-22"),
+        ("Diana Prince", 3, 75000.0, "diana@datatalk.ai", "2021-11-05"),
+        ("Ethan Hunt", 1, 110000.0, "ethan@datatalk.ai", "2020-08-19"),
+        ("Fiona Gallagher", 4, 90000.0, "fiona@datatalk.ai", "2019-12-30"),
+        ("George Costanza", 5, 60000.0, "george@datatalk.ai", "2022-04-14"),
+        ("Hannah Baker", 1, 98000.0, "hannah@datatalk.ai", "2021-09-21"),
+        ("Ian Malcolm", 3, 78000.0, "ian@datatalk.ai", "2021-05-11"),
+        ("Jane Doe", 4, 115000.0, "jane@datatalk.ai", "2018-10-01")
+    ]
+    cursor.executemany("""
+        INSERT OR IGNORE INTO employee (name, department_id, salary, email, join_date) 
+        VALUES (?, ?, ?, ?, ?)
+    """, employees)
+    
+    # Set Managers
+    cursor.execute("UPDATE department SET manager_id = 2 WHERE name = 'Engineering'")
+    cursor.execute("UPDATE department SET manager_id = 3 WHERE name = 'Product'")
+    cursor.execute("UPDATE department SET manager_id = 4 WHERE name = 'Marketing'")
+    cursor.execute("UPDATE department SET manager_id = 10 WHERE name = 'Sales'")
+    cursor.execute("UPDATE department SET manager_id = 7 WHERE name = 'HR'")
+    
+    # Seed Projects
+    projects = [
+        ("Project Apollo", 150000.0, "2024-01-10"),
+        ("Project Genesis", 80000.0, "2024-02-15"),
+        ("Project Titan", 200000.0, "2024-03-01")
+    ]
+    cursor.executemany("INSERT OR IGNORE INTO project (name, budget, start_date) VALUES (?, ?, ?)", projects)
+    
+    # Seed Assignments
+    assignments = [
+        (1, 1, "Lead Developer"),
+        (2, 1, "Architect"),
+        (3, 2, "Product Manager"),
+        (4, 3, "Marketing Coordinator"),
+        (5, 3, "Security Engineer"),
+        (8, 2, "Frontend Developer"),
+        (9, 3, "Analyst")
+    ]
+    cursor.executemany("INSERT OR IGNORE INTO employee_project (employee_id, project_id, role) VALUES (?, ?, ?)", assignments)
+    
+    conn.commit()
+    conn.close()
+    print("SQLite Demo database successfully seeded!")
 
 # --- LangGraph pipeline setup ---
 class State(TypedDict):
@@ -79,17 +172,17 @@ class QueryOutput(TypedDict):
     query: Annotated[str, ..., "Syntactically valid SQL query."]
 
 def create_database_graph(db_url: str):
-    """Create a database graph with the provided database URL"""
     if not db_url:
         raise ValueError("Database URL is required")
+        
+    ensure_demo_db_seeded(db_url)
     
-    # Create database connection
-    # FIX: Create engine with AUTOCOMMIT to ensure DDL commands
-    # (like CREATE TABLE) are not run in a transaction.
-    engine = create_engine(db_url, isolation_level="AUTOCOMMIT")
-    
-    # FIX: Pass the engine. The 'AUTOCOMMIT' isolation level
-    # on the engine is what correctly handles DDL.
+    # SQLite does not support isolation level AUTOCOMMIT in SQLAlchemy
+    if db_url.startswith("sqlite"):
+        engine = create_engine(db_url)
+    else:
+        engine = create_engine(db_url, isolation_level="AUTOCOMMIT")
+        
     db = SQLDatabase(engine=engine)
     
     def write_query(state: State):
@@ -109,21 +202,17 @@ def create_database_graph(db_url: str):
         execute_query_tool = QuerySQLDatabaseTool(db=db)
         query = state["query"]
         
-        # Check if this is a modification (not a SELECT)
+        # Safe detection of DDL/DML vs standard SELECT queries
         is_select = query.strip().lower().startswith("select")
         
         try:
             result = execute_query_tool.invoke(query)
         except Exception as e:
-            # If it fails, always return the error
             return {"result": f"Error executing query: {str(e)}"}
 
-        # If it's not a SELECT and it didn't error, it was a successful modification.
-        # This provides a real result for the 'generate_answer' node.
         if not is_select:
             return {"result": "Operation completed successfully."}
         
-        # Otherwise, return the SELECT query result
         return {"result": result}
 
     def generate_answer(state: State):
@@ -156,30 +245,18 @@ def create_database_graph(db_url: str):
     return graph
 
 def ask_database(question: str, conversation_history: list[BaseMessage], db_url: str = None) -> str:
-    """Ask a natural language question and get an answer from the database.
-    
-    Args:
-        question: The user's question
-        conversation_history: List of conversation messages
-        db_url: Database connection URL. If not provided, falls back to DB_URL env variable.
-    """
-    # Use provided db_url or fall back to environment variable
+    # Set default connection pointing to our auto-seeded demo SQLite database
     if not db_url:
-        db_url = os.getenv("DB_URL")
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        db_url = f"sqlite:///{os.path.join(base_dir, 'context', 'datatalk_demo.db')}"
     
-    if not db_url:
-        raise ValueError("Database URL is required. Please provide a db_url parameter or set DB_URL environment variable.")
-    
-    # Create graph with the database URL
     graph = create_database_graph(db_url)
     
     initial_state = State(conversation_history=conversation_history, question=question)
     result = graph.invoke(initial_state)
     answer = result["answer"]
 
-    # Track history for context
     conversation_history.append(HumanMessage(question))
     conversation_history.append(AIMessage(answer))
 
     return answer
-
