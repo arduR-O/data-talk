@@ -461,6 +461,20 @@ Your job is to follow user requests precisely by formulating search/query plans 
     *   **Step 1:** Call `search_documents` to get the list.
     *   **Step 2:** Call `query_database` with the results of Step 1 to fetch the salaries.
 *   Do not stop until all parts of the user request are complete. Provide a final summary of what you did.
+
+**DATA VISUALIZATION RULE:**
+If the user asks for a chart or graph, or if the database query returns numerical/tabular data that would benefit from visual representation (e.g. comparing values, trend lines, proportion breakdowns), you MUST append a chart JSON block at the very end of your response inside a code block tagged with 'chart'.
+Format the block exactly like this:
+```chart
+{
+  "type": "bar" | "line" | "pie",
+  "title": "Chart Title",
+  "data": [
+    {"name": "category or label", "value": 123.45}
+  ]
+}
+```
+Only use "name" and "value" keys in the data objects. Do not write any other keys in "data" items.
 """
 
     def chat(
