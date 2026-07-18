@@ -148,12 +148,23 @@ async def create_upload_files(
         filename = Path(upload.filename).name
         dest_path = uploads_dir / filename
         
+        MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50MB limit
+        total_bytes = 0
+        
         # Read file chunks incrementally to keep memory profile low
         with open(dest_path, "wb") as out_file:
             while True:
                 chunk = await upload.read(1024 * 1024)
                 if not chunk:
                     break
+                total_bytes += len(chunk)
+                if total_bytes > MAX_UPLOAD_SIZE:
+                    out_file.close()
+                    dest_path.unlink(missing_ok=True)
+                    raise HTTPException(
+                        status_code=413, 
+                        detail=f"File {filename} exceeds the maximum size limit of 50MB"
+                    )
                 out_file.write(chunk)
         
         ext = dest_path.suffix.lower()
