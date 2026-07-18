@@ -5,7 +5,8 @@ Allows LLM to reason, plan, and execute multiple tool calls sequentially
 
 import os
 import sqlite3
-from langchain_groq import ChatGroq
+import contextvars
+from utils.llm_client import get_llm
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage, SystemMessage
 from typing import List, Optional, Literal
 from dotenv import load_dotenv
@@ -25,11 +26,8 @@ from utils.retriever_helper import get_user_retriever, check_user_has_documents
 
 load_dotenv()
 
-# Instantiating the ChatGroq model with a robust, large context model
-llm = ChatGroq(
-    model="qwen/qwen3-32b",
-    temperature=0
-)
+# Use shared, cached LLM client
+llm = get_llm()
 
 # ============================================================================
 # DEBUG LOGGER
@@ -113,8 +111,28 @@ class DebugLogger:
             "execution_time": f"{self.logs[-1]['timestamp']} (end)" if self.logs else "N/A"
         }
 
-# Global debug logger instance
-debug_logger = DebugLogger(enabled=True)
+# Thread-safe request logger context var
+_debug_logger_var = contextvars.ContextVar("debug_logger_var")
+
+class ThreadSafeDebugLogger:
+    """Thread-safe proxy for request-scoped DebugLogger"""
+    @property
+    def current(self) -> DebugLogger:
+        try:
+            return _debug_logger_var.get()
+        except LookupError:
+            default_logger = DebugLogger(enabled=True)
+            _debug_logger_var.set(default_logger)
+            return default_logger
+
+    def __getattr__(self, name):
+        return getattr(self.current, name)
+
+    def __setattr__(self, name, value):
+        setattr(self.current, name, value)
+
+# Thread-safe proxy debug logger instance
+debug_logger = ThreadSafeDebugLogger()
 
 # ============================================================================
 # TOOLS DEFINITION
@@ -438,6 +456,9 @@ Your job is to follow user requests precisely by formulating search/query plans 
         db_url: Optional[str] = None,
         debug: bool = True
     ) -> dict:
+        # Initialize thread-safe debug logger for this request
+        request_logger = DebugLogger()
+        _debug_logger_var.set(request_logger)
         debug_logger.enabled = debug
         debug_logger.clear()
         
@@ -485,7 +506,7 @@ Your job is to follow user requests precisely by formulating search/query plans 
         debug_logger.info("Starting agent graph execution")
         
         try:
-            final_state = self.graph.invoke(initial_state)
+            final_state = self.graph.invoke(initial_state, config={"recursion_limit": 25})
             answer = final_state.get('final_answer', "I apologize, but I couldn't generate a response.")
             
             tools_used = set()
