@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import axios from "axios";
-import { Sparkles, Trash2, Send, Brain, Terminal, ChevronDown, Bot, X } from "lucide-react";
+import { Sparkles, Trash2, Send, Brain, Terminal, ChevronDown, Bot, X, Plus } from "lucide-react";
 import { API_BASE } from '../lib/api';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -314,6 +314,12 @@ export default function Inference() {
   const [error, setError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Session management states
+  const [sessions, setSessions] = useState<Array<{ session_id: string, title: string, timestamp: string }>>([
+    { session_id: 'default', title: 'Default Thread', timestamp: new Date().toISOString() }
+  ]);
+  const [activeSessionId, setActiveSessionId] = useState<string>('default');
+
   const getAuthToken = (): string | null => {
     if (typeof window === 'undefined') return null;
     return localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -331,13 +337,39 @@ export default function Inference() {
 
   useEffect(() => {
     setIsClient(true);
+    loadSessions();
     loadChatHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Reload history when active session changes
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [responses]);
+    if (isClient) {
+      loadChatHistory();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSessionId]);
+
+  const loadSessions = async () => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/chat/sessions`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.sessions && data.sessions.length > 0) {
+          setSessions(data.sessions);
+        } else {
+          setSessions([{ session_id: 'default', title: 'Default Thread', timestamp: new Date().toISOString() }]);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load chat sessions:', e);
+    }
+  };
 
   const loadChatHistory = async () => {
     const token = getAuthToken();
@@ -346,8 +378,9 @@ export default function Inference() {
       return;
     }
 
+    setIsLoadingHistory(true);
     try {
-      const response = await axios.get(`${API_BASE}/api/chat/history`, {
+      const response = await axios.get(`${API_BASE}/api/chat/history?session_id=${activeSessionId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -387,7 +420,7 @@ export default function Inference() {
 
     setIsClearing(true);
     try {
-      await axios.delete(`${API_BASE}/api/chat/history`, {
+      await axios.delete(`${API_BASE}/api/chat/history?session_id=${activeSessionId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -400,6 +433,7 @@ export default function Inference() {
           timestamp: new Date().toLocaleTimeString()
         }
       ]);
+      loadSessions();
     } catch (error: any) {
       console.error('Failed to clear chat history:', error);
       setError('Failed to clear chat history. Please try again.');
@@ -408,7 +442,39 @@ export default function Inference() {
     }
   };
 
+  const startNewSession = () => {
+    const newSessionId = `session-${Math.random().toString(36).substring(2, 15)}`;
+    setActiveSessionId(newSessionId);
+    setResponses([
+      {
+        type: 'system',
+        content: "Welcome to DataTalk workspace. I am your agentic assistant, ready to write SQL queries against your databases and retrieve insights from your text/PDF documents.",
+        timestamp: new Date().toLocaleTimeString()
+      }
+    ]);
+  };
 
+  const switchSession = (sessionId: string) => {
+    setActiveSessionId(sessionId);
+  };
+
+  const deleteSession = async (sessionId: string) => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+      await axios.delete(`${API_BASE}/api/chat/history?session_id=${sessionId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (activeSessionId === sessionId) {
+        setActiveSessionId('default');
+      }
+      loadSessions();
+    } catch (e) {
+      console.error('Failed to delete session:', e);
+    }
+  };
 
   const handleSendQuery = async () => {
     if (!query.trim() || isLoading) return;
@@ -438,7 +504,10 @@ export default function Inference() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ question: currentQuery })
+        body: JSON.stringify({ 
+          question: currentQuery,
+          session_id: activeSessionId
+        })
       });
 
       if (!response.ok) {
@@ -496,6 +565,7 @@ export default function Inference() {
                 }
                 return updated;
               });
+              loadSessions();
               break;
             }
 
@@ -528,224 +598,267 @@ export default function Inference() {
   };
 
   return (
-    <div className="bg-slate-900/40 border border-white/5 rounded-2xl shadow-2xl flex flex-col h-full w-full backdrop-blur-md overflow-hidden relative">
+    <div className="bg-slate-900/40 border border-white/5 rounded-2xl shadow-2xl flex h-full w-full backdrop-blur-md overflow-hidden relative">
       
-      {/* Header */}
-      <div className="border-b border-white/5 px-6 py-4 bg-slate-950/20 flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold tracking-tight text-white flex items-center gap-2">
-            <Bot className="w-4 h-4 text-blue-400" />
-            AI Workspace Agent
-          </h2>
-          <p className="text-[10px] text-slate-400 mt-0.5">Observe reasoning steps & dynamic table querying</p>
+      {/* Sidebar for chat sessions */}
+      <div className="w-48 bg-slate-950/40 border-r border-white/5 flex flex-col h-full flex-shrink-0">
+        <div className="p-3 border-b border-white/5">
+          <button
+            onClick={startNewSession}
+            className="w-full py-2 px-3 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Chat</span>
+          </button>
         </div>
         
-        {showClearConfirm ? (
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-red-400 font-semibold">Clear history?</span>
-            <button
-              onClick={confirmClearHistory}
-              className="px-2 py-1 rounded bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold transition-colors"
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {sessions.map(s => (
+            <div
+              key={s.session_id}
+              className={`group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all text-[11px] ${
+                activeSessionId === s.session_id
+                  ? 'bg-blue-600/10 text-white font-medium border border-blue-500/10'
+                  : 'text-slate-400 hover:bg-white/[0.02] hover:text-slate-200'
+              }`}
+              onClick={() => switchSession(s.session_id)}
             >
-              Yes
-            </button>
-            <button
-              onClick={() => setShowClearConfirm(false)}
-              className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold transition-colors"
-            >
-              No
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowClearConfirm(true)}
-            disabled={isClearing || isLoadingHistory || responses.length <= 1}
-            className="p-1.5 rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Clear chat history"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        )}
+              <span className="truncate pr-2">{s.title || 'New Chat'}</span>
+              {s.session_id !== 'default' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteSession(s.session_id);
+                  }}
+                  className="opacity-0 group-hover:opacity-100 hover:text-red-400 transition-opacity p-0.5"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Messages Feed */}
-      <div className="flex-1 p-6 overflow-y-auto space-y-6 bg-slate-950/10">
-        {isLoadingHistory ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="flex items-center gap-2.5 text-slate-400 text-xs">
-              <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
-              <span>Loading workspace conversation...</span>
-            </div>
+      {/* Main chat window */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        {/* Header */}
+        <div className="border-b border-white/5 px-6 py-4 bg-slate-950/20 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight text-white flex items-center gap-2">
+              <Bot className="w-4 h-4 text-blue-400" />
+              AI Workspace Agent
+            </h2>
+            <p className="text-[10px] text-slate-400 mt-0.5">Observe reasoning steps & dynamic table querying</p>
           </div>
-        ) : (
-          <div className="space-y-6 max-w-5xl mx-auto">
-            {responses.map((message, index) => (
-              <div key={message.timestamp + '-' + index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] flex gap-3 ${message.type === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                  
-                  {/* Icon */}
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg ${
-                    message.type === 'user' 
-                      ? 'bg-blue-600' 
-                      : message.type === 'system'
-                      ? 'bg-amber-600/20 border border-amber-500/30'
-                      : 'bg-slate-800 border border-white/5'
-                  }`}>
-                    {message.type === 'user' ? (
-                      <div className="text-white text-xs font-bold">U</div>
-                    ) : message.type === 'system' ? (
-                      <Terminal className="w-3.5 h-3.5 text-amber-400" />
-                    ) : (
-                      <Bot className="w-4 h-4 text-blue-400" />
-                    )}
-                  </div>
-                  
-                  {/* Bubble */}
-                  <div className={`rounded-2xl px-4 py-3 shadow-md ${
-                    message.type === 'user' 
-                      ? 'bg-blue-600/90 text-white font-medium' 
-                      : message.type === 'system'
-                      ? 'bg-amber-950/10 border border-amber-500/20 text-amber-300/90'
-                      : 'bg-white/[0.03] border border-white/5 text-slate-200'
-                  }`}>
-                    {(() => {
-                      const extractThink = (text: string) => {
-                        if (!text) return { visible: '', think: '' };
-                        const regex = /<think>([\s\S]*?)<\/think>/g;
-                        const matches = Array.from(text.matchAll(regex));
-                        const thinkText = matches
-                          .map(match => match[1]?.trim())
-                          .filter(Boolean)
-                          .join('\n\n');
-                        const visible = text.replace(regex, '').trim();
-                        return { visible, think: thinkText };
-                      };
-                      const parsed = message.type === 'assistant' ? extractThink(message.content) : { visible: message.content, think: '' };
-                      return (
-                        <>
-                          {message.type === 'assistant' ? (
-                            <div className="text-xs leading-relaxed whitespace-pre-wrap space-y-2">
-                              <MarkdownText content={parsed.visible} />
-                            </div>
-                          ) : (
-                            <p className="text-xs leading-relaxed whitespace-pre-wrap">{parsed.visible}</p>
-                          )}
-                          {parsed.think && message.type === 'assistant' && (
-                            <details className="mt-2.5 group">
-                              <summary className="text-[10px] cursor-pointer select-none text-slate-400 hover:text-slate-200 transition-colors font-semibold flex items-center gap-1">
-                                <Brain className="w-3 h-3 text-purple-400" /> View Agent Thoughts
-                              </summary>
-                              <div className="mt-1.5 text-[10px] text-purple-300 bg-purple-950/10 border border-purple-500/10 rounded-xl p-2.5 whitespace-pre-wrap font-mono leading-relaxed">
-                                {parsed.think}
-                              </div>
-                            </details>
-                          )}
-                        </>
-                      );
-                    })()}
-                    
-                    {/* Execution Logs Drawer inside assistant bubbles */}
-                    {message.type === 'assistant' && message.debug_logs && message.debug_logs.length > 0 && (
-                      <details className="mt-3 group border border-white/5 rounded-xl bg-slate-950/20 overflow-hidden">
-                        <summary className="text-[10px] cursor-pointer select-none text-slate-400 hover:text-slate-200 transition-colors font-semibold px-3 py-2 flex items-center justify-between">
-                          <span className="flex items-center gap-1.5"><Terminal className="w-3 h-3 text-cyan-400" /> View Execution Logs ({message.routing || 'agent'})</span>
-                          <ChevronDown className="w-3 h-3 transform group-open:rotate-180 transition-transform duration-200 text-slate-500" />
-                        </summary>
-                        <div className="border-t border-white/5 p-3 space-y-2 font-mono text-[9px] leading-relaxed max-h-52 overflow-y-auto text-slate-300">
-                          {message.debug_logs.map((log, lIdx) => (
-                            <div key={lIdx} className="border-b border-white/5 last:border-0 pb-1.5 mb-1.5 last:pb-0 last:mb-0">
-                              <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                                <span className="text-slate-500">[{log.timestamp}]</span>
-                                <span className={`px-1 py-0.5 rounded font-bold uppercase text-[8px] ${
-                                  log.level === 'TOOL' ? 'bg-purple-900/30 text-purple-300 border border-purple-800/30' :
-                                  log.level === 'SQL' ? 'bg-cyan-900/30 text-cyan-300 border border-cyan-800/30' :
-                                  log.level === 'RESULT' ? 'bg-emerald-900/30 text-emerald-300 border border-emerald-800/30' :
-                                  log.level === 'ERROR' ? 'bg-red-900/30 text-red-300 border border-red-800/30' :
-                                  'bg-slate-800 text-slate-300 border border-white/5'
-                                }`}>
-                                  {log.level}
-                                </span>
-                                <span className="font-semibold text-slate-100">{log.message}</span>
-                              </div>
-                              {log.data && (
-                                <pre className="bg-slate-950 text-slate-400 rounded-lg p-2 mt-1 overflow-x-auto text-[8px] max-w-full whitespace-pre-wrap break-all border border-white/5">
-                                  {JSON.stringify(log.data, null, 2)}
-                                </pre>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </details>
-                    )}
-                    
-                    {isClient && <p className={`text-[9px] mt-2 font-medium ${
-                      message.type === 'user' ? 'text-blue-200/70' : 'text-slate-500'
-                    }`}>
-                      {message.timestamp}
-                    </p>}
-                  </div>
-                </div>
+          
+          {showClearConfirm ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-red-400 font-semibold">Clear history?</span>
+              <button
+                onClick={confirmClearHistory}
+                className="px-2 py-1 rounded bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold transition-colors"
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold transition-colors"
+              >
+                No
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowClearConfirm(true)}
+              disabled={isClearing || isLoadingHistory || responses.length <= 1}
+              className="p-1.5 rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Clear chat history"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Messages Feed */}
+        <div className="flex-1 p-6 overflow-y-auto space-y-6 bg-slate-950/10">
+          {isLoadingHistory ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="flex items-center gap-2.5 text-slate-400 text-xs">
+                <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                <span>Loading workspace conversation...</span>
               </div>
-            ))}
-            
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="max-w-[85%] flex gap-3 flex-row">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg bg-slate-800 border border-white/5">
-                    <Bot className="w-4 h-4 text-blue-400 animate-pulse" />
-                  </div>
-                  <div className="rounded-2xl px-4 py-3 bg-white/[0.03] border border-white/5 text-slate-200">
-                    <div className="flex items-center gap-2 text-xs">
-                      <div className="w-3.5 h-3.5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
-                      <span className="text-slate-400">Agent thinking...</span>
+            </div>
+          ) : (
+            <div className="space-y-6 max-w-5xl mx-auto">
+              {responses.map((message, index) => (
+                <div key={message.timestamp + '-' + index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] flex gap-3 ${message.type === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                    
+                    {/* Icon */}
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg ${
+                      message.type === 'user' 
+                        ? 'bg-blue-600' 
+                        : message.type === 'system'
+                        ? 'bg-amber-600/20 border border-amber-500/30'
+                        : 'bg-slate-800 border border-white/5'
+                    }`}>
+                      {message.type === 'user' ? (
+                        <div className="text-white text-xs font-bold">U</div>
+                      ) : message.type === 'system' ? (
+                        <Terminal className="w-3.5 h-3.5 text-amber-400" />
+                      ) : (
+                        <Bot className="w-4 h-4 text-blue-400" />
+                      )}
+                    </div>
+                    
+                    {/* Bubble */}
+                    <div className={`rounded-2xl px-4 py-3 shadow-md ${
+                      message.type === 'user' 
+                        ? 'bg-blue-600/90 text-white font-medium' 
+                        : message.type === 'system'
+                        ? 'bg-amber-950/10 border border-amber-500/20 text-amber-300/90'
+                        : 'bg-white/[0.03] border border-white/5 text-slate-200'
+                    }`}>
+                      {(() => {
+                        const extractThink = (text: string) => {
+                          if (!text) return { visible: '', think: '' };
+                          const regex = /<think>([\s\S]*?)<\/think>/g;
+                          const matches = Array.from(text.matchAll(regex));
+                          const thinkText = matches
+                            .map(match => match[1]?.trim())
+                            .filter(Boolean)
+                            .join('\n\n');
+                          const visible = text.replace(regex, '').trim();
+                          return { visible, think: thinkText };
+                        };
+                        const parsed = message.type === 'assistant' ? extractThink(message.content) : { visible: message.content, think: '' };
+                        return (
+                          <>
+                            {message.type === 'assistant' ? (
+                              <div className="text-xs leading-relaxed whitespace-pre-wrap space-y-2">
+                                <MarkdownText content={parsed.visible} />
+                              </div>
+                            ) : (
+                              <p className="text-xs leading-relaxed whitespace-pre-wrap">{parsed.visible}</p>
+                            )}
+                            {parsed.think && message.type === 'assistant' && (
+                              <details className="mt-2.5 group">
+                                <summary className="text-[10px] cursor-pointer select-none text-slate-400 hover:text-slate-200 transition-colors font-semibold flex items-center gap-1">
+                                  <Brain className="w-3 h-3 text-purple-400" /> View Agent Thoughts
+                                </summary>
+                                <div className="mt-1.5 text-[10px] text-purple-300 bg-purple-950/10 border border-purple-500/10 rounded-xl p-2.5 whitespace-pre-wrap font-mono leading-relaxed">
+                                  {parsed.think}
+                                </div>
+                              </details>
+                            )}
+                          </>
+                        );
+                      })()}
+                      
+                      {/* Execution Logs Drawer inside assistant bubbles */}
+                      {message.type === 'assistant' && message.debug_logs && message.debug_logs.length > 0 && (
+                        <details className="mt-3 group border border-white/5 rounded-xl bg-slate-950/20 overflow-hidden">
+                          <summary className="text-[10px] cursor-pointer select-none text-slate-400 hover:text-slate-200 transition-colors font-semibold px-3 py-2 flex items-center justify-between">
+                            <span className="flex items-center gap-1.5"><Terminal className="w-3 h-3 text-cyan-400" /> View Execution Logs ({message.routing || 'agent'})</span>
+                            <ChevronDown className="w-3 h-3 transform group-open:rotate-180 transition-transform duration-200 text-slate-500" />
+                          </summary>
+                          <div className="border-t border-white/5 p-3 space-y-2 font-mono text-[9px] leading-relaxed max-h-52 overflow-y-auto text-slate-300">
+                            {message.debug_logs.map((log, lIdx) => (
+                              <div key={lIdx} className="border-b border-white/5 last:border-0 pb-1.5 mb-1.5 last:pb-0 last:mb-0">
+                                <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                                  <span className="text-slate-500">[{log.timestamp}]</span>
+                                  <span className={`px-1 py-0.5 rounded font-bold uppercase text-[8px] ${
+                                    log.level === 'TOOL' ? 'bg-purple-900/30 text-purple-300 border border-purple-800/30' :
+                                    log.level === 'SQL' ? 'bg-cyan-900/30 text-cyan-300 border border-cyan-800/30' :
+                                    log.level === 'RESULT' ? 'bg-emerald-900/30 text-emerald-300 border border-emerald-800/30' :
+                                    log.level === 'ERROR' ? 'bg-red-900/30 text-red-300 border border-red-800/30' :
+                                    'bg-slate-800 text-slate-300 border border-white/5'
+                                  }`}>
+                                    {log.level}
+                                  </span>
+                                  <span className="font-semibold text-slate-100">{log.message}</span>
+                                </div>
+                                {log.data && (
+                                  <pre className="bg-slate-950 text-slate-400 rounded-lg p-2 mt-1 overflow-x-auto text-[8px] max-w-full whitespace-pre-wrap break-all border border-white/5">
+                                    {JSON.stringify(log.data, null, 2)}
+                                  </pre>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+                      
+                      {isClient && <p className={`text-[9px] mt-2 font-medium ${
+                        message.type === 'user' ? 'text-blue-200/70' : 'text-slate-500'
+                      }`}>
+                        {message.timestamp}
+                      </p>}
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
+              ))}
+              
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="max-w-[85%] flex gap-3 flex-row">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg bg-slate-800 border border-white/5">
+                      <Bot className="w-4 h-4 text-blue-400 animate-pulse" />
+                    </div>
+                    <div className="rounded-2xl px-4 py-3 bg-white/[0.03] border border-white/5 text-slate-200">
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className="w-3.5 h-3.5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-slate-400">Agent thinking...</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
+
+        {/* Error Banner */}
+        {error && (
+          <div className="mx-4 p-2 bg-red-950/40 border border-red-500/20 text-red-400 rounded-lg text-[11px] flex justify-between items-center max-w-5xl md:mx-auto mb-2">
+            <span>{error}</span>
+            <button onClick={() => setError('')} className="hover:text-white transition-colors">
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         )}
-      </div>
 
-      {/* Error Banner */}
-      {error && (
-        <div className="mx-4 p-2 bg-red-950/40 border border-red-500/20 text-red-400 rounded-lg text-[11px] flex justify-between items-center max-w-5xl md:mx-auto mb-2">
-          <span>{error}</span>
-          <button onClick={() => setError('')} className="hover:text-white transition-colors">
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* Input Field */}
-      <div className="border-t border-white/5 p-4 bg-slate-950/20">
-        <div className="flex gap-3 max-w-5xl mx-auto items-end">
-          <textarea
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                if (!isLoading && query.trim()) {
-                  handleSendQuery();
+        {/* Input Field */}
+        <div className="border-t border-white/5 p-4 bg-slate-950/20">
+          <div className="flex gap-3 max-w-5xl mx-auto items-end">
+            <textarea
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  if (!isLoading && query.trim()) {
+                    handleSendQuery();
+                  }
                 }
-              }
-            }}
-            placeholder="Ask a question about connected databases or uploaded documents..."
-            disabled={isLoading}
-            rows={1}
-            style={{ minHeight: '44px', maxHeight: '150px' }}
-            className="flex-1 px-4 py-3 bg-slate-950/60 border border-white/5 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto"
-          />
-          <button
-            onClick={handleSendQuery}
-            disabled={!query.trim() || isLoading}
-            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl transition-all disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed flex items-center gap-1.5 text-xs font-semibold shadow-lg shadow-blue-500/10 h-[44px]"
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span>Ask</span>
-          </button>
+              }}
+              placeholder="Ask a question about connected databases or uploaded documents..."
+              disabled={isLoading}
+              rows={1}
+              style={{ minHeight: '44px', maxHeight: '150px' }}
+              className="flex-1 px-4 py-3 bg-slate-950/60 border border-white/5 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto"
+            />
+            <button
+              onClick={handleSendQuery}
+              disabled={!query.trim() || isLoading}
+              className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl transition-all disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed flex items-center gap-1.5 text-xs font-semibold shadow-lg shadow-blue-500/10 h-[44px]"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Ask</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
