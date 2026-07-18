@@ -1,8 +1,86 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import axios from "axios";
-import { Sparkles, Trash2, Send, Brain, Terminal, ChevronDown, Bot } from "lucide-react";
+import { Sparkles, Trash2, Send, Brain, Terminal, ChevronDown, Bot, X } from "lucide-react";
+import { API_BASE } from '../lib/api';
+
+const MarkdownText = ({ content }: { content: string }) => {
+  if (!content) return null;
+  const lines = content.split('\n');
+  const renderedElements: React.ReactNode[] = [];
+  
+  let currentList: React.ReactNode[] = [];
+  let inList = false;
+
+  const parseInline = (text: string) => {
+    const parts = text.split(/(\*\*.*?\*\*|`.*?`)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i} className="font-semibold text-white">{part.slice(2, -2)}</strong>;
+      }
+      if (part.startsWith('`') && part.endsWith('`')) {
+        return <code key={i} className="px-1.5 py-0.5 rounded bg-slate-800 text-[11px] font-mono border border-white/5 text-cyan-400">{part.slice(1, -1)}</code>;
+      }
+      return part;
+    });
+  };
+
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = lines[idx];
+    
+    if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
+      inList = true;
+      currentList.push(<li key={`li-${idx}`} className="list-disc ml-5 mb-1 text-slate-300">{parseInline(line.replace(/^[\s\-\*]+/, ''))}</li>);
+      continue;
+    }
+    
+    if (inList && !line.trim().startsWith('- ') && !line.trim().startsWith('* ')) {
+      renderedElements.push(<ul key={`ul-${idx}`} className="my-2">{currentList}</ul>);
+      currentList = [];
+      inList = false;
+    }
+
+    if (line.startsWith('### ')) {
+      renderedElements.push(<h3 key={idx} className="text-sm font-bold text-white mt-4 mb-2">{parseInline(line.slice(4))}</h3>);
+      continue;
+    }
+    if (line.startsWith('## ')) {
+      renderedElements.push(<h2 key={idx} className="text-base font-bold text-white mt-5 mb-2">{parseInline(line.slice(3))}</h2>);
+      continue;
+    }
+    if (line.startsWith('# ')) {
+      renderedElements.push(<h1 key={idx} className="text-lg font-bold text-white mt-6 mb-3">{parseInline(line.slice(2))}</h1>);
+      continue;
+    }
+
+    if (line.startsWith('```')) {
+      const codeLines: string[] = [];
+      let codeIdx = idx + 1;
+      while (codeIdx < lines.length && !lines[codeIdx].startsWith('```')) {
+        codeLines.push(lines[codeIdx]);
+        codeIdx++;
+      }
+      idx = codeIdx;
+      renderedElements.push(
+        <pre key={idx} className="my-3 p-3 bg-slate-950 border border-white/5 rounded-xl font-mono text-[11px] text-blue-200 overflow-x-auto">
+          {codeLines.join('\n')}
+        </pre>
+      );
+      continue;
+    }
+
+    if (line.trim() !== '') {
+      renderedElements.push(<p key={idx} className="mb-2 text-slate-300 leading-relaxed text-xs">{parseInline(line)}</p>);
+    }
+  }
+
+  if (inList && currentList.length > 0) {
+    renderedElements.push(<ul key="ul-final" className="my-2">{currentList}</ul>);
+  }
+
+  return <div>{renderedElements}</div>;
+};
 
 interface Message {
   type: 'user' | 'assistant' | 'system';
@@ -30,6 +108,9 @@ export default function Inference() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [isClearing, setIsClearing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [error, setError] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const getAuthToken = (): string | null => {
     if (typeof window === 'undefined') return null;
@@ -52,6 +133,10 @@ export default function Inference() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [responses]);
+
   const loadChatHistory = async () => {
     const token = getAuthToken();
     if (!token) {
@@ -60,7 +145,7 @@ export default function Inference() {
     }
 
     try {
-      const response = await axios.get('http://localhost:8000/api/chat/history', {
+      const response = await axios.get(`${API_BASE}/api/chat/history`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -90,20 +175,17 @@ export default function Inference() {
     }
   };
 
-  const handleClearHistory = async () => {
+  const confirmClearHistory = async () => {
+    setShowClearConfirm(false);
     const token = getAuthToken();
     if (!token) {
-      alert('Please log in to clear chat history');
-      return;
-    }
-
-    if (!confirm('Are you sure you want to clear all chat history? This action cannot be undone.')) {
+      setError('Please log in to clear chat history');
       return;
     }
 
     setIsClearing(true);
     try {
-      await axios.delete('http://localhost:8000/api/chat/history', {
+      await axios.delete(`${API_BASE}/api/chat/history`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -118,34 +200,20 @@ export default function Inference() {
       ]);
     } catch (error: any) {
       console.error('Failed to clear chat history:', error);
-      alert('Failed to clear chat history. Please try again.');
+      setError('Failed to clear chat history. Please try again.');
     } finally {
       setIsClearing(false);
     }
   };
 
-  const renderMarkdownToHtml = (text: string) => {
-    if (!text) return '';
-    const escapeHtml = (s: string) =>
-      s
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/\"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-    const escaped = escapeHtml(text);
-   
-    const withBold = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold text-white">$1</strong>');
-    const withCode = withBold.replace(/`([^`]+)`/g, '<code class="bg-white/10 px-1.5 py-0.5 rounded text-cyan-400 font-mono text-xs border border-white/5">$1</code>');
-    return withCode;
-  };
+
 
   const handleSendQuery = async () => {
     if (!query.trim() || isLoading) return;
     
     const token = getAuthToken();
     if (!token) {
-      alert('Please log in to send messages');
+      setError('Please log in to send messages');
       return;
     }
 
@@ -161,7 +229,7 @@ export default function Inference() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:8000/api/chat', {
+      const response = await axios.post(`${API_BASE}/api/chat`, {
         question: currentQuery,
       }, {
         headers: {
@@ -204,14 +272,32 @@ export default function Inference() {
           <p className="text-[10px] text-slate-400 mt-0.5">Observe reasoning steps & dynamic table querying</p>
         </div>
         
-        <button
-          onClick={handleClearHistory}
-          disabled={isClearing || isLoadingHistory || responses.length <= 1}
-          className="p-1.5 rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Clear chat history"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        {showClearConfirm ? (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-red-400 font-semibold">Clear history?</span>
+            <button
+              onClick={confirmClearHistory}
+              className="px-2 py-1 rounded bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold transition-colors"
+            >
+              Yes
+            </button>
+            <button
+              onClick={() => setShowClearConfirm(false)}
+              className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold transition-colors"
+            >
+              No
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowClearConfirm(true)}
+            disabled={isClearing || isLoadingHistory || responses.length <= 1}
+            className="p-1.5 rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Clear chat history"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Messages Feed */}
@@ -226,7 +312,7 @@ export default function Inference() {
         ) : (
           <div className="space-y-6 max-w-5xl mx-auto">
             {responses.map((message, index) => (
-              <div key={index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div key={message.timestamp + '-' + index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] flex gap-3 ${message.type === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                   
                   {/* Icon */}
@@ -270,10 +356,9 @@ export default function Inference() {
                       return (
                         <>
                           {message.type === 'assistant' ? (
-                            <div
-                              className="text-xs leading-relaxed whitespace-pre-wrap space-y-2"
-                              dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(parsed.visible) }}
-                            />
+                            <div className="text-xs leading-relaxed whitespace-pre-wrap space-y-2">
+                              <MarkdownText content={parsed.visible} />
+                            </div>
                           ) : (
                             <p className="text-xs leading-relaxed whitespace-pre-wrap">{parsed.visible}</p>
                           )}
@@ -350,26 +435,45 @@ export default function Inference() {
                 </div>
               </div>
             )}
+            <div ref={messagesEndRef} />
           </div>
         )}
       </div>
 
+      {/* Error Banner */}
+      {error && (
+        <div className="mx-4 p-2 bg-red-950/40 border border-red-500/20 text-red-400 rounded-lg text-[11px] flex justify-between items-center max-w-5xl md:mx-auto mb-2">
+          <span>{error}</span>
+          <button onClick={() => setError('')} className="hover:text-white transition-colors">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Input Field */}
       <div className="border-t border-white/5 p-4 bg-slate-950/20">
-        <div className="flex gap-3 max-w-5xl mx-auto">
-          <input
-            type="text"
+        <div className="flex gap-3 max-w-5xl mx-auto items-end">
+          <textarea
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleSendQuery()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (!isLoading && query.trim()) {
+                  handleSendQuery();
+                }
+              }
+            }}
             placeholder="Ask a question about connected databases or uploaded documents..."
             disabled={isLoading}
-            className="flex-1 px-4 py-3 bg-slate-950/60 border border-white/5 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            rows={1}
+            style={{ minHeight: '44px', maxHeight: '150px' }}
+            className="flex-1 px-4 py-3 bg-slate-950/60 border border-white/5 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto"
           />
           <button
             onClick={handleSendQuery}
             disabled={!query.trim() || isLoading}
-            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl transition-all disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed flex items-center gap-1.5 text-xs font-semibold shadow-lg shadow-blue-500/10"
+            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl transition-all disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed flex items-center gap-1.5 text-xs font-semibold shadow-lg shadow-blue-500/10 h-[44px]"
           >
             <Send className="w-3.5 h-3.5" />
             <span>Ask</span>
