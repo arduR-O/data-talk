@@ -1,4 +1,0 @@
-Here I shall document current limitations and possible ways of addressing them
-1) Right now the RAG works just like a RAG. It will be able to answer specific facts, but it is not able to reason when to make multiple retrieve calls, in queries like "summarize the chapter" it just directly puts this query to the retrieval system and summarizes whatever chunk it gets, instead of actually retrieving the whole chapter and then summarizing it. 
-Possible solution: provide context about retrieval system to the llm and to use it as a tool and not reasoning agent
-2) There should be a tool to summarize the docs that it has access to... maybe I will add that to system prompt
