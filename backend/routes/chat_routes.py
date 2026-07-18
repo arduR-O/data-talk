@@ -45,7 +45,7 @@ async def chat_endpoint(
     authorization: str = Header(...)
 ):
     user_id = get_user_id_from_token(authorization)
-    result = chat_controller.process_message(user_id, chat_request.question)
+    result = chat_controller.process_message(user_id, chat_request.question, session_id=chat_request.session_id)
     
     if result['success']:
         return {
@@ -83,7 +83,8 @@ async def chat_stream_endpoint(
             asyncio.to_thread(
                 chat_controller.process_message,
                 user_id,
-                chat_request.question
+                chat_request.question,
+                session_id=chat_request.session_id
             )
         )
         
@@ -114,10 +115,29 @@ async def chat_stream_endpoint(
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
-@router.get("/chat/history")
-async def get_chat_history(authorization: str = Header(...)):
+@router.get("/chat/sessions")
+async def get_chat_sessions(authorization: str = Header(...)):
     user_id = get_user_id_from_token(authorization)
-    result = chat_controller.get_history(user_id)
+    result = chat_controller.get_sessions(user_id)
+    
+    if result['success']:
+        return {
+            "sessions": result['data']['sessions']
+        }
+    else:
+        raise HTTPException(
+            status_code=result['status_code'],
+            detail=result['message']
+        )
+
+
+@router.get("/chat/history")
+async def get_chat_history(
+    session_id: Optional[str] = 'default',
+    authorization: str = Header(...)
+):
+    user_id = get_user_id_from_token(authorization)
+    result = chat_controller.get_history(user_id, session_id=session_id)
     
     if result['success']:
         return {
@@ -131,9 +151,12 @@ async def get_chat_history(authorization: str = Header(...)):
 
 
 @router.delete("/chat/history")
-async def clear_chat_history(authorization: str = Header(...)):
+async def clear_chat_history(
+    session_id: Optional[str] = 'default',
+    authorization: str = Header(...)
+):
     user_id = get_user_id_from_token(authorization)
-    result = chat_controller.clear_history(user_id)
+    result = chat_controller.clear_history(user_id, session_id=session_id)
     
     if result['success']:
         return {
