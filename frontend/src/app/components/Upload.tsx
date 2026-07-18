@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
 import { Database, CloudUpload, FileText, CheckCircle, AlertCircle, X, Loader2, DatabaseBackup, ChevronDown } from "lucide-react";
+import { API_BASE } from '../lib/api';
 
 interface UploadedFile {
   id: string;
@@ -18,7 +19,6 @@ interface Connection {
 
 export default function UploadCard() {
   const [dbUrl, setDbUrl] = useState('');
-  const [apiKey, setApiKey] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -26,7 +26,6 @@ export default function UploadCard() {
   const [connectionError, setConnectionError] = useState('');
   const [loading, setLoading] = useState(true);
   const [filesDropdownOpen, setFilesDropdownOpen] = useState(true);
-  const [connectionsDropdownOpen, setConnectionsDropdownOpen] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -58,7 +57,7 @@ export default function UploadCard() {
 
     try {
       // Load uploaded files
-      const filesResponse = await fetch('http://localhost:8000/api/uploadfiles/', {
+      const filesResponse = await fetch(`${API_BASE}/api/uploadfiles/`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -74,7 +73,7 @@ export default function UploadCard() {
       }
 
       // Load database connection details
-      const dbResponse = await fetch('http://localhost:8000/api/database-url', {
+      const dbResponse = await fetch(`${API_BASE}/api/database-url`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -123,7 +122,7 @@ export default function UploadCard() {
     setUploadedFiles((prev) => [...prev, ...newFiles]);
 
     try {
-      const response = await fetch('http://localhost:8000/api/uploadfiles/', {
+      const response = await fetch(`${API_BASE}/api/uploadfiles/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -211,7 +210,7 @@ export default function UploadCard() {
     setConnectionError('');
 
     try {
-      const response = await fetch('http://localhost:8000/api/database-url', {
+      const response = await fetch(`${API_BASE}/api/database-url`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -232,7 +231,6 @@ export default function UploadCard() {
           status: 'connected'
         };
         setConnections([newConnection]);
-        setApiKey('');
         setConnectionError('');
       } else {
         setConnectionError(data.detail || 'Failed to connect database');
@@ -250,7 +248,7 @@ export default function UploadCard() {
     if (!token) return;
 
     try {
-      await fetch('http://localhost:8000/api/database-url', {
+      await fetch(`${API_BASE}/api/database-url`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -271,13 +269,13 @@ export default function UploadCard() {
     if (!token) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/api/uploadfiles/${encodeURIComponent(filename)}`, {
+      const response = await fetch(`${API_BASE}/api/uploadfiles/${encodeURIComponent(filename)}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (response.ok) {
-        setUploadedFiles(uploadedFiles.filter(file => file.name !== filename));
+        setUploadedFiles(prev => prev.filter(file => file.name !== filename));
         // Reset DB Connection URL if the file deleted was their active database SQLite session
         if (dbUrl && dbUrl.includes(filename)) {
           setDbUrl('');
