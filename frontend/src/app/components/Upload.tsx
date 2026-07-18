@@ -1,7 +1,8 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
-import { Database, CloudUpload, FileText, CheckCircle, AlertCircle, X, Loader2, DatabaseBackup, ChevronDown } from "lucide-react";
+import { Database, CloudUpload, FileText, CheckCircle, AlertCircle, X, Loader2, DatabaseBackup, ChevronDown, Eye } from "lucide-react";
 import { API_BASE } from '../lib/api';
+import SchemaViewer from './SchemaViewer';
 
 interface UploadedFile {
   id: string;
@@ -26,6 +27,7 @@ export default function UploadCard() {
   const [connectionError, setConnectionError] = useState('');
   const [loading, setLoading] = useState(true);
   const [filesDropdownOpen, setFilesDropdownOpen] = useState(true);
+  const [isSchemaViewerOpen, setIsSchemaViewerOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -324,7 +326,7 @@ export default function UploadCard() {
   }
 
   return (
-    <div className="bg-slate-900/40 border border-white/5 rounded-2xl shadow-2xl w-full h-full p-6 space-y-6 backdrop-blur-md overflow-y-auto relative flex flex-col justify-between">
+    <div className="bg-slate-900/20 border border-white/10 rounded-2xl shadow-2xl w-full h-full p-6 space-y-6 backdrop-blur-xl overflow-y-auto relative flex flex-col justify-between">
       
       <div className="space-y-6">
         {/* Title */}
@@ -402,17 +404,26 @@ export default function UploadCard() {
                     dbUrl && !dbUrl.includes('datatalk_demo.db') ? 'bg-green-500' : 'bg-blue-500'
                   } animate-ping opacity-60`}></div>
                 </div>
-                <div className="flex-1">
-                  <p className="font-bold">
-                    {dbUrl && !dbUrl.includes('datatalk_demo.db') 
-                      ? 'Connected to Active Database' 
-                      : 'Active Database: Fictional Company (Demo)'}
-                  </p>
-                  <p className="text-[10px] mt-1 opacity-80 leading-relaxed font-mono truncate">
-                    {dbUrl && !dbUrl.includes('datatalk_demo.db')
-                      ? dbUrl.split('@')[1] || dbUrl
-                      : 'Tables: employee, department, project, employee_project'}
-                  </p>
+                <div className="flex-1 flex items-center justify-between gap-2 min-w-0">
+                  <div className="min-w-0">
+                    <p className="font-bold truncate">
+                      {dbUrl && !dbUrl.includes('datatalk_demo.db') 
+                        ? 'Connected to Active Database' 
+                        : 'Active Database: Fictional Company (Demo)'}
+                    </p>
+                    <p className="text-[10px] mt-1 opacity-80 leading-relaxed font-mono truncate">
+                      {dbUrl && !dbUrl.includes('datatalk_demo.db')
+                        ? dbUrl.split('@')[1] || dbUrl
+                        : 'Tables: employee, department, project, employee_project'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsSchemaViewerOpen(true)}
+                    className="flex-shrink-0 p-1.5 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 text-white flex items-center gap-1.5 transition-colors"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span className="hidden xl:inline">View Schema</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -495,6 +506,12 @@ export default function UploadCard() {
           </>
         )}
       </div>
+
+      <SchemaViewer 
+        isOpen={isSchemaViewerOpen} 
+        onClose={() => setIsSchemaViewerOpen(false)} 
+        token={getAuthToken() || ''}
+      />
     </div>
   );
 }

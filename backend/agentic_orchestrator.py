@@ -220,6 +220,12 @@ def search_documents(search_query: str, context: dict) -> str:
         debug_logger.error("User ID not provided")
         return "❌ User ID not provided."
     
+    from services.vector_service import get_vector_service
+    vector_service = get_vector_service()
+    if not vector_service.available:
+        debug_logger.info("Vector service is unavailable", user_id=user_id)
+        return "❌ Document search is unavailable. The Pinecone vector store API key is not configured. Please set PINECONE_API_KEY in the backend .env file."
+        
     if not check_user_has_documents(user_id):
         debug_logger.info("No documents found for user", user_id=user_id)
         return "❌ No documents uploaded. User needs to upload PDF documents first."
@@ -436,8 +442,12 @@ def create_agent_graph():
 
 class AgenticOrchestrator:
     def __init__(self):
-        self.graph = create_agent_graph()
         self.system_message = self._create_system_message()
+        if llm is None:
+            self.graph = None
+            print("⚠️ Initializing AgenticOrchestrator in DEMO MODE (No LLM).")
+        else:
+            self.graph = create_agent_graph()
     
     def _create_system_message(self) -> str:
         # Enforcing structured Plan-then-Execute and Self-Correction logic
@@ -534,6 +544,30 @@ Only use "name" and "value" keys in the data objects. Do not write any other key
         
         debug_logger.info("Starting agent graph execution")
         
+        if self.graph is None:
+            # DEMO MODE SIMULATION
+            debug_logger.info("Graph is None, returning Demo Mode response")
+            demo_message = f"**Demo Mode Active**: I am running without API keys. To enable full agentic capabilities, please configure the `GROQ_API_KEY` in the backend `.env` file.\n\nYou asked: *\"{question}\"*\n\nIf the keys were configured, I would process this question using the agentic ReAct loop."
+            
+            callback = _stream_callback_var.get()
+            if callback:
+                import time
+                for word in demo_message.split(" "):
+                    callback(word + " ")
+                    time.sleep(0.02)
+                    
+            return {
+                'answer': demo_message,
+                'routing': 'demo',
+                'resources': {
+                    'database': has_database,
+                    'documents': has_documents,
+                    'is_demo_db': 'datatalk_demo.db' in db_url if db_url else False
+                },
+                'tools_used': [],
+                'debug_logs': debug_logger.get_logs() if debug else []
+            }
+
         try:
             final_state = self.graph.invoke(initial_state, config={"recursion_limit": 25})
             answer = final_state.get('final_answer', "I apologize, but I couldn't generate a response.")

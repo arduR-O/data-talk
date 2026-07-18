@@ -24,46 +24,59 @@ class DocumentVectorService:
         embedding_model: str = None  # Will auto-detect
     ):
         self.index_name = index_name
+        self._available = False
         
-        # 🔥 FIX: Auto-detect dimension from existing index
-        self.pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
-        
-        # Check if index exists and get its dimension
-        existing_dimension = self._get_index_dimension()
-        
-        if existing_dimension:
-            print(f"📊 Detected existing index dimension: {existing_dimension}")
-            # Automatically match the embedding model to the index dimension
-            if existing_dimension == 3072:
-                embedding_model = "models/embedding-001"  # 3072 dimensions
-                print("✅ Auto-selected: embedding-001 (3072 dims)")
-            elif existing_dimension == 768:
-                embedding_model = "models/text-embedding-004"  # 768 dimensions
-                print("✅ Auto-selected: text-embedding-004 (768 dims)")
-            else:
-                raise ValueError(f"Unsupported index dimension: {existing_dimension}. Expected 768 or 3072.")
-            self.embedding_dimension = existing_dimension
-        else:
-            # No existing index - use default (embedding-001 with 3072 dims)
-            if embedding_model is None:
-                embedding_model = "models/embedding-001"
-            print(f"📝 No existing index. Will create with model: {embedding_model}")
+        api_key = os.environ.get("PINECONE_API_KEY")
+        if not api_key:
+            print("⚠️  PINECONE_API_KEY not set — vector search disabled (RAG won't work)")
+            return
             
-            # Determine dimension based on model
-            if "embedding-001" in embedding_model:
-                self.embedding_dimension = 3072
-            elif "text-embedding-004" in embedding_model:
-                self.embedding_dimension = 768
+        try:
+            self.pc = Pinecone(api_key=api_key)
+            
+            # Check if index exists and get its dimension
+            existing_dimension = self._get_index_dimension()
+            
+            if existing_dimension:
+                print(f"📊 Detected existing index dimension: {existing_dimension}")
+                # Automatically match the embedding model to the index dimension
+                if existing_dimension == 3072:
+                    embedding_model = "models/embedding-001"  # 3072 dimensions
+                    print("✅ Auto-selected: embedding-001 (3072 dims)")
+                elif existing_dimension == 768:
+                    embedding_model = "models/text-embedding-004"  # 768 dimensions
+                    print("✅ Auto-selected: text-embedding-004 (768 dims)")
+                else:
+                    raise ValueError(f"Unsupported index dimension: {existing_dimension}. Expected 768 or 3072.")
+                self.embedding_dimension = existing_dimension
             else:
-                # Default fallback
-                self.embedding_dimension = 3072
-        
-        # Initialize embeddings with auto-detected model
-        self.embeddings = GoogleGenerativeAIEmbeddings(model=embedding_model)
-        print(f"🔧 Using embedding model: {embedding_model} ({self.embedding_dimension} dims)")
-        
-        # Initialize vector store
-        self.vector_store = self._init_vector_store()
+                # No existing index - use default (embedding-001 with 3072 dims)
+                if embedding_model is None:
+                    embedding_model = "models/embedding-001"
+                print(f"📝 No existing index. Will create with model: {embedding_model}")
+                
+                # Determine dimension based on model
+                if "embedding-001" in embedding_model:
+                    self.embedding_dimension = 3072
+                elif "text-embedding-004" in embedding_model:
+                    self.embedding_dimension = 768
+                else:
+                    # Default fallback
+                    self.embedding_dimension = 3072
+            
+            # Initialize embeddings with auto-detected model
+            self.embeddings = GoogleGenerativeAIEmbeddings(model=embedding_model)
+            print(f"🔧 Using embedding model: {embedding_model} ({self.embedding_dimension} dims)")
+            
+            # Initialize vector store
+            self.vector_store = self._init_vector_store()
+            self._available = True
+        except Exception as e:
+            print(f"⚠️  Pinecone initialization failed: {e} — vector search disabled")
+    
+    @property
+    def available(self) -> bool:
+        return self._available
     
     def _get_index_dimension(self) -> Optional[int]:
         """Get the dimension of existing index, or None if doesn't exist"""
@@ -302,6 +315,9 @@ class DocumentVectorService:
         Returns:
             List of unique filenames
         """
+        if not self._available:
+            return []
+            
         try:
             index = self.pc.Index(self.index_name)
             

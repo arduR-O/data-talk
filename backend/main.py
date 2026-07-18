@@ -68,7 +68,7 @@ async def health_check():
     vector_status = "operational"
     try:
         if not os.getenv("PINECONE_API_KEY"):
-            vector_status = "error: PINECONE_API_KEY environment variable missing"
+            vector_status = "disabled: PINECONE_API_KEY not configured (RAG features unavailable)"
         else:
             from pinecone import Pinecone
             pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))

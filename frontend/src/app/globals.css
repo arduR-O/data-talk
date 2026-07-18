@@ -3,55 +3,78 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
+  --color-bg: #030712;
+  --color-surface: rgba(255, 255, 255, 0.02);
+  --color-border: rgba(255, 255, 255, 0.06);
+  --color-text: #e2e8f0;
+  --color-text-muted: #64748b;
+  --color-accent: #3b82f6;
+  --color-accent-glow: rgba(59, 130, 246, 0.15);
+  --radius: 16px;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  font-family: var(--font-outfit), system-ui, sans-serif;
+  color: var(--color-text);
+  background-color: var(--color-bg);
 }
+
+.font-mono, code, pre {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+/* Smooth scroll everywhere */
+html { scroll-behavior: smooth; }
+
+/* Custom scrollbar — all scrollable areas */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
+
+/* Selection color */
+::selection { background: rgba(59, 130, 246, 0.3); color: white; }
+
 /* Ensure proper mobile viewport handling */
 @media (max-width: 640px) {
   * {
     -webkit-tap-highlight-color: transparent;
   }
   
-  /* Prevent horizontal scroll */
   html, body {
     overflow-x: hidden;
   }
   
-  /* Better touch targets */
   button, input, [role="button"] {
     min-height: 44px;
   }
 }
 
-/* Custom scrollbar for chat */
-.overflow-y-auto::-webkit-scrollbar {
-  width: 6px;
+/* Custom animations */
+@keyframes shimmer {
+  0% { background-position: 200% center; }
+  100% { background-position: -200% center; }
 }
 
-.overflow-y-auto::-webkit-scrollbar-track {
-  background: transparent;
+.animate-shimmer {
+  background-size: 200% auto;
+  animation: shimmer 8s ease-in-out infinite alternate;
 }
 
-.overflow-y-auto::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.3);
-  border-radius: 3px;
+/* Completely hide scrollbar while keeping scrollability */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes borderGlow {
+  0%, 100% { border-color: rgba(59, 130, 246, 0.2); }
+  50% { border-color: rgba(59, 130, 246, 0.6); }
+}
+
+.animate-border-glow {
+  animation: borderGlow 3s ease-in-out infinite;
 }

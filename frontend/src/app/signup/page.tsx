@@ -183,6 +183,15 @@ export default function SignupPage() {
                setLoading(false);
             }
           },
+          error_callback: (error: any) => {
+            console.error('GSI Error:', error);
+            if (error?.type === 'popup_closed') {
+              setError('Google sign-in popup was closed. Please try again.');
+            } else {
+              setError('Google sign-in failed. Please ensure this origin is authorized in GCP Console, or use email/password login.');
+            }
+            setLoading(false);
+          }
         });
 
         window.google.accounts.id.prompt();
@@ -228,12 +237,11 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '4s' }}></div>
+    <div className="min-h-screen flex items-center justify-center bg-[#030712] relative overflow-hidden">
+      {/* Ambient Background Gradients */}
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/30 rounded-full blur-[120px] mix-blend-screen animate-pulse" style={{ animationDuration: '4s' }} />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-600/30 rounded-full blur-[120px] mix-blend-screen animate-pulse" style={{ animationDuration: '5s' }} />
       </div>
 
       {/* Floating particles */}

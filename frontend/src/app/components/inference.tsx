@@ -312,6 +312,7 @@ export default function Inference() {
   const [isLoading, setIsLoading] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [error, setError] = useState('');
+  const [isDemoMode, setIsDemoMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Session management states
@@ -387,10 +388,15 @@ export default function Inference() {
       });
 
       if (response.data.messages && response.data.messages.length > 0) {
+        if (response.data.demo_mode !== undefined) {
+          setIsDemoMode(response.data.demo_mode);
+        }
+
         const formattedMessages: Message[] = response.data.messages.map((msg: any) => ({
           type: msg.type as 'user' | 'assistant' | 'system',
           content: msg.content,
-          timestamp: formatTimestamp(msg.timestamp)
+          timestamp: formatTimestamp(msg.timestamp),
+          routing: msg.routing
         }));
 
         setResponses(formattedMessages);
@@ -479,6 +485,40 @@ export default function Inference() {
   const handleSendQuery = async () => {
     if (!query.trim() || isLoading) return;
     
+    if (isDemoMode) {
+      const userMsg: Message = {
+        type: 'user',
+        content: query,
+        timestamp: new Date().toLocaleTimeString()
+      };
+      setResponses(prev => [...prev, userMsg]);
+      setQuery('');
+      setIsLoading(true);
+
+      setTimeout(() => {
+        const demoResponses: Record<string, string> = {
+          default: "I found **6 employees** across **3 departments** in the demo database.\n\n```sql\nSELECT department, COUNT(*) as count\nFROM employees\nGROUP BY department;\n```\n\n| Department | Count |\n|---|---|\n| Engineering | 3 |\n| Sales | 2 |\n| Marketing | 1 |\n\nIn a live environment, I would execute this against your connected database and return real results.",
+          salary: "Here are the salary insights from the demo database:\n\n```sql\nSELECT name, department, salary\nFROM employees\nORDER BY salary DESC;\n```\n\n| Name | Department | Salary |\n|---|---|---|\n| Alice Chen | Engineering | $125,000 |\n| Bob Smith | Engineering | $115,000 |\n| Carol Davis | Engineering | $108,000 |\n| Dave Wilson | Sales | $95,000 |\n| Eve Brown | Sales | $88,000 |\n| Frank Lee | Marketing | $82,000 |",
+        };
+
+        const lowerQ = query.toLowerCase();
+        let responseText = demoResponses.default;
+        if (lowerQ.includes('salary') || lowerQ.includes('pay') || lowerQ.includes('earn') || lowerQ.includes('compensation')) {
+          responseText = demoResponses.salary;
+        }
+
+        const assistantMsg: Message = {
+          type: 'assistant',
+          content: responseText,
+          timestamp: new Date().toLocaleTimeString(),
+          routing: 'database'
+        };
+        setResponses(prev => [...prev, assistantMsg]);
+        setIsLoading(false);
+      }, 1500);
+      return;
+    }
+
     const token = getAuthToken();
     if (!token) {
       setError('Please log in to send messages');
@@ -598,7 +638,7 @@ export default function Inference() {
   };
 
   return (
-    <div className="bg-slate-900/40 border border-white/5 rounded-2xl shadow-2xl flex h-full w-full backdrop-blur-md overflow-hidden relative">
+    <div className="bg-slate-900/20 border border-white/10 rounded-2xl shadow-2xl flex h-full w-full backdrop-blur-xl overflow-hidden relative">
       
       {/* Sidebar for chat sessions */}
       <div className="w-48 bg-slate-950/40 border-r border-white/5 flex flex-col h-full flex-shrink-0">
@@ -612,7 +652,7 @@ export default function Inference() {
           </button>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-2 space-y-1">
           {sessions.map(s => (
             <div
               key={s.session_id}
@@ -680,8 +720,23 @@ export default function Inference() {
           )}
         </div>
 
+        {/* Demo Mode Banner */}
+        {isDemoMode && (
+          <div className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 border-b border-purple-500/30 px-6 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-1.5 bg-purple-500/20 rounded-lg">
+                <Sparkles className="w-4 h-4 text-purple-400" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-purple-100">Demo Mode Active</p>
+                <p className="text-[10px] text-purple-300/80">API keys are missing. You are viewing a pre-loaded demonstration.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Messages Feed */}
-        <div className="flex-1 p-6 overflow-y-auto space-y-6 bg-slate-950/10">
+        <div className="flex-1 p-6 overflow-y-auto scrollbar-hide space-y-6 bg-slate-950/10">
           {isLoadingHistory ? (
             <div className="flex items-center justify-center h-full">
               <div className="flex items-center gap-2.5 text-slate-400 text-xs">

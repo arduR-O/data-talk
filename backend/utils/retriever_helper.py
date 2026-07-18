@@ -45,5 +45,7 @@ def check_user_has_documents(user_id: str) -> bool:
         bool: True if user has documents, False otherwise
     """
     vector_service = get_vector_service()
+    if not vector_service.available:
+        return False
     documents = vector_service.list_user_documents(user_id)
     return len(documents) > 0

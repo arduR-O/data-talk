@@ -139,8 +139,45 @@ async def get_chat_history(
     user_id = get_user_id_from_token(authorization)
     result = chat_controller.get_history(user_id, session_id=session_id)
     
+    import os
+    if not os.getenv("GROQ_API_KEY"):
+        now = datetime.now().strftime("%I:%M:%S %p")
+        return {
+            "demo_mode": True,
+            "messages": [
+                {
+                    "type": "system",
+                    "content": "Welcome to DataTalk workspace. You are viewing a **demo session** with a pre-loaded SQLite database containing `employees` and `projects` tables. Ask questions in the chat below to see simulated agent responses.",
+                    "timestamp": now
+                },
+                {
+                    "type": "user",
+                    "content": "How many employees are in each department?",
+                    "timestamp": now
+                },
+                {
+                    "type": "assistant",
+                    "content": "I queried the demo database and found **6 employees** across **3 departments**.\n\n```sql\nSELECT department, COUNT(*) as count\nFROM employees\nGROUP BY department\nORDER BY count DESC;\n```\n\n| Department | Count |\n|---|---|\n| Engineering | 3 |\n| Sales | 2 |\n| Marketing | 1 |\n\nEngineering has the most staff. Would you like to see salary breakdowns?",
+                    "timestamp": now,
+                    "routing": "database"
+                },
+                {
+                    "type": "user",
+                    "content": "Yes, show me the average salary by department",
+                    "timestamp": now
+                },
+                {
+                    "type": "assistant",
+                    "content": "Here are the average salaries by department:\n\n```sql\nSELECT department, ROUND(AVG(salary), 0) as avg_salary\nFROM employees\nGROUP BY department\nORDER BY avg_salary DESC;\n```\n\n```chart\n" + '{"type": "bar", "title": "Avg Salary by Department", "data": [{"name": "Engineering", "value": 116000}, {"name": "Sales", "value": 91500}, {"name": "Marketing", "value": 82000}]}' + "\n```\n\nEngineering leads at **$116,000** average, followed by Sales at **$91,500** and Marketing at **$82,000**.",
+                    "timestamp": now,
+                    "routing": "database"
+                }
+            ]
+        }
+
     if result['success']:
         return {
+            "demo_mode": False,
             "messages": result['data']['messages']
         }
     else:
@@ -207,6 +244,50 @@ async def get_database_url(authorization: str = Header(...)):
                 "configured": False,
                 "message": "No database URL configured"
             }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/database/schema")
+async def get_database_schema(authorization: str = Header(...)):
+    user_id = get_user_id_from_token(authorization)
+    
+    try:
+        db_url = auth_controller.user_model.get_db_url(user_id)
+        if not db_url:
+            db_url = "sqlite:///datatalk_demo.db"
+            
+        from sqlalchemy import create_engine, MetaData
+        engine = create_engine(db_url)
+        metadata = MetaData()
+        metadata.reflect(bind=engine)
+        
+        tables_info = []
+        for table_name, table in metadata.tables.items():
+            columns = []
+            for col in table.columns:
+                columns.append({
+                    "name": col.name,
+                    "type": str(col.type),
+                    "primary_key": col.primary_key
+                })
+            
+            # Fetch sample rows
+            try:
+                with engine.connect() as conn:
+                    # Fetch up to 1000 rows for virtualizer demonstration
+                    res = conn.execute(table.select().limit(1000))
+                    rows = [dict(row._mapping) for row in res]
+            except Exception:
+                rows = []
+                
+            tables_info.append({
+                "name": table_name,
+                "columns": columns,
+                "sample_rows": rows
+            })
+            
+        return {"tables": tables_info}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
