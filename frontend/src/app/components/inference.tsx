@@ -4,6 +4,183 @@ import React, { useEffect, useState, useRef } from 'react';
 import axios from "axios";
 import { Sparkles, Trash2, Send, Brain, Terminal, ChevronDown, Bot, X } from "lucide-react";
 import { API_BASE } from '../lib/api';
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+
+const TableRenderer = ({ tableLines }: { tableLines: string[] }) => {
+  const parsedRows = tableLines.map(line => 
+    line.split('|')
+      .map(cell => cell.trim())
+      .filter((_, i, arr) => i > 0 && i < arr.length - 1)
+  );
+
+  const rows = parsedRows.filter(row => !row.every(cell => cell.startsWith('-') || cell.startsWith(':')));
+
+  if (rows.length === 0) return null;
+  const headers = rows[0];
+  const bodyRows = rows.slice(1);
+
+  const exportTableToCSV = () => {
+    const csvRows = rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(","));
+    const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(csvRows.join("\n"));
+    const link = document.createElement("a");
+    link.setAttribute("href", csvContent);
+    link.setAttribute("download", "table_data.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="my-4 p-4 bg-slate-950/40 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm">
+      <div className="flex justify-between items-center mb-3">
+        <span className="text-[10px] font-mono text-slate-400 font-semibold uppercase tracking-wider">Query Results</span>
+        <button
+          onClick={exportTableToCSV}
+          className="px-2.5 py-1 text-[10px] bg-slate-800/60 hover:bg-slate-700/60 text-slate-300 font-semibold rounded-lg flex items-center gap-1 transition-colors border border-white/5"
+        >
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Export CSV
+        </button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[11px] text-slate-300 text-left border-collapse">
+          <thead>
+            <tr className="border-b border-white/10 bg-white/[0.02]">
+              {headers.map((header, i) => (
+                <th key={i} className="px-3 py-2 font-semibold text-white">{header}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {bodyRows.map((row, rIdx) => (
+              <tr key={rIdx} className="border-b border-white/5 hover:bg-white/[0.01] transition-colors">
+                {row.map((cell, cIdx) => (
+                  <td key={cIdx} className="px-3 py-2 text-slate-300 font-mono">{cell}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+const ChartRenderer = ({ jsonStr }: { jsonStr: string }) => {
+  try {
+    const chartConfig = JSON.parse(jsonStr);
+    const { type, title, data } = chartConfig;
+
+    if (!data || !Array.isArray(data)) return null;
+
+    const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#ef4444'];
+
+    const exportToCSV = () => {
+      const csvRows = [
+        "Name,Value",
+        ...data.map(e => `"${String(e.name).replace(/"/g, '""')}",${e.value}`)
+      ];
+      const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(csvRows.join("\n"));
+      const link = document.createElement("a");
+      link.setAttribute("href", csvContent);
+      link.setAttribute("download", `${title || "chart_data"}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
+    const renderChart = () => {
+      switch (type) {
+        case 'line':
+          return (
+            <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} />
+              <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
+              <Tooltip 
+                contentStyle={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                labelStyle={{ color: '#fff', fontSize: '10px' }}
+                itemStyle={{ color: '#60a5fa', fontSize: '10px' }}
+              />
+              <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+            </LineChart>
+          );
+        case 'pie':
+          return (
+            <PieChart>
+              <Pie
+                data={data}
+                cx="50%"
+                cy="50%"
+                innerRadius={40}
+                outerRadius={70}
+                paddingAngle={4}
+                dataKey="value"
+              >
+                {data.map((entry: any, index: number) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip 
+                contentStyle={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                itemStyle={{ color: '#fff', fontSize: '10px' }}
+              />
+            </PieChart>
+          );
+        case 'bar':
+        default:
+          return (
+            <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} />
+              <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
+              <Tooltip 
+                contentStyle={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                labelStyle={{ color: '#fff', fontSize: '10px' }}
+                itemStyle={{ color: '#60a5fa', fontSize: '10px' }}
+              />
+              <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]}>
+                {data.map((entry: any, index: number) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          );
+      }
+    };
+
+    return (
+      <div className="my-4 p-4 bg-slate-950/40 border border-white/5 rounded-2xl backdrop-blur-sm max-w-full">
+        <div className="flex justify-between items-center mb-3">
+          {title && <h4 className="text-xs font-semibold text-slate-200 tracking-wide">{title}</h4>}
+          <button
+            onClick={exportToCSV}
+            className="px-2.5 py-1 text-[10px] bg-slate-800/60 hover:bg-slate-700/60 text-slate-300 font-semibold rounded-lg flex items-center gap-1 transition-colors border border-white/5"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export CSV
+          </button>
+        </div>
+        <div className="w-full h-48">
+          <ResponsiveContainer width="100%" height="100%">
+            {renderChart()}
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+  } catch (e) {
+    console.error('Failed to render chart:', e);
+    return (
+      <pre className="my-3 p-3 bg-red-950/20 border border-red-500/10 rounded-xl font-mono text-[10px] text-red-400 overflow-x-auto">
+        Failed to render chart data: {jsonStr}
+      </pre>
+    );
+  }
+};
 
 const MarkdownText = ({ content }: { content: string }) => {
   if (!content) return null;
@@ -29,6 +206,19 @@ const MarkdownText = ({ content }: { content: string }) => {
   for (let idx = 0; idx < lines.length; idx++) {
     const line = lines[idx];
     
+    // Markdown table block detection
+    if (line.trim().startsWith('|')) {
+      const tableLines: string[] = [];
+      let tableIdx = idx;
+      while (tableIdx < lines.length && lines[tableIdx].trim().startsWith('|')) {
+        tableLines.push(lines[tableIdx]);
+        tableIdx++;
+      }
+      idx = tableIdx - 1;
+      renderedElements.push(<TableRenderer key={`table-${idx}`} tableLines={tableLines} />);
+      continue;
+    }
+
     if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
       inList = true;
       currentList.push(<li key={`li-${idx}`} className="list-disc ml-5 mb-1 text-slate-300">{parseInline(line.replace(/^[\s\-\*]+/, ''))}</li>);
@@ -51,6 +241,18 @@ const MarkdownText = ({ content }: { content: string }) => {
     }
     if (line.startsWith('# ')) {
       renderedElements.push(<h1 key={idx} className="text-lg font-bold text-white mt-6 mb-3">{parseInline(line.slice(2))}</h1>);
+      continue;
+    }
+
+    if (line.startsWith('```chart')) {
+      const chartJsonLines: string[] = [];
+      let chartIdx = idx + 1;
+      while (chartIdx < lines.length && !lines[chartIdx].startsWith('```')) {
+        chartJsonLines.push(lines[chartIdx]);
+        chartIdx++;
+      }
+      idx = chartIdx;
+      renderedElements.push(<ChartRenderer key={`chart-${idx}`} jsonStr={chartJsonLines.join('\n')} />);
       continue;
     }
 
