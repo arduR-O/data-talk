@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 class ChatRequest(BaseModel):
     question: str
+    session_id: Optional[str] = 'default'
 
 class ChatResponse(BaseModel):
     response: str
