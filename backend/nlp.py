@@ -1,7 +1,9 @@
 import os
 import sqlite3
+import re
+from functools import lru_cache
 from langchain_community.utilities import SQLDatabase
-from langchain_groq import ChatGroq
+from utils.llm_client import get_llm
 from typing_extensions import TypedDict, Annotated
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.tools.sql_database.tool import QuerySQLDatabaseTool
@@ -13,10 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- LLM setup ---
-llm = ChatGroq(
-    model="qwen/qwen3-32b",
-    temperature=0
-)
+llm = get_llm()
 
 def ensure_demo_db_seeded(db_url: str):
     """Seed the database with sample data if it's a new or empty SQLite database"""
@@ -171,6 +170,20 @@ query_prompt_template = ChatPromptTemplate(
 class QueryOutput(TypedDict):
     query: Annotated[str, ..., "Syntactically valid SQL query."]
 
+DANGEROUS_SQL_PATTERNS = [
+    r'\bDROP\b', r'\bDELETE\b', r'\bTRUNCATE\b', r'\bALTER\b',
+    r'\bINSERT\b', r'\bUPDATE\b', r'\bCREATE\b', r'\bGRANT\b',
+    r'\bREVOKE\b', r'\bEXEC\b', r'\bATTACH\b',
+]
+
+def validate_sql_safety(sql: str) -> bool:
+    """Returns True if the SQL query is safe and read-only."""
+    for pattern in DANGEROUS_SQL_PATTERNS:
+        if re.search(pattern, sql, re.IGNORECASE):
+            return False
+    return True
+
+@lru_cache(maxsize=16)
 def create_database_graph(db_url: str):
     if not db_url:
         raise ValueError("Database URL is required")
@@ -202,6 +215,10 @@ def create_database_graph(db_url: str):
         execute_query_tool = QuerySQLDatabaseTool(db=db)
         query = state["query"]
         
+        # SQL safety check
+        if not validate_sql_safety(query):
+            return {"result": "Error: Execution blocked. SQL query contains potentially unsafe operations."}
+            
         # Safe detection of DDL/DML vs standard SELECT queries
         is_select = query.strip().lower().startswith("select")
         
