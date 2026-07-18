@@ -24,7 +24,7 @@ async def google_login(payload: GoogleLoginRequest):
 @router.post("/signup", response_model=AuthResponse)
 async def signup(user_data: SignupRequest):
     """User registration endpoint"""
-    result = auth_controller.signup(user_data.dict())
+    result = auth_controller.signup(user_data.model_dump())
     
     if result['success']:
         return {
@@ -40,7 +40,7 @@ async def signup(user_data: SignupRequest):
 @router.post("/login", response_model=AuthResponse)
 async def login(credentials: LoginRequest):
     """User login endpoint"""
-    result = auth_controller.login(credentials.dict())
+    result = auth_controller.login(credentials.model_dump())
     
     if result['success']:
         return {
