@@ -132,7 +132,7 @@ class TestChatHistoryModel:
         result = chat_history_model.clear_user_history(user_id)
         
         assert result == deleted_count
-        chat_history_model.chat_history.delete_many.assert_called_once_with({'user_id': user_id})
+        chat_history_model.chat_history.delete_many.assert_called_once_with({'user_id': user_id, 'session_id': 'default'})
     
     def test_clear_user_history_empty(self, chat_history_model):
         """Test clearing history when no messages exist"""
