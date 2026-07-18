@@ -1,4 +1,41 @@
-.env
-.venv
+# Python
 __pycache__/
-/backend/context
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+.coverage
+htmlcov/
+.pytest_cache/
+*.db
+*.sqlite
+
+# Backend context (uploaded files, runtime DBs)
+/backend/context/
+
+# Environment secrets
+.env
+.env.local
+.env.*.local
+
+# Node / Frontend
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
