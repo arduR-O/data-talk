@@ -56,11 +56,10 @@ export default function LandingPage() {
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
 
-    const dotSpacing = 16; // Increased density spacing
-    const repulsionRadius = 80; // Tighter deflection radius
-    const repulsionStrength = 6.0; // Responsive push force
-    const springStiffness = 0.08; // Snappier elastic recall
-    const damping = 0.78; // Increased friction to eliminate wobble
+    const dotSpacing = 12; // Dense grid spacing
+    const glowRadius = 150; // Proximity glow radius
+    const springStiffness = 0.05; // Smooth spring-back
+    const damping = 0.88; // Deceleration damping
     
     let dots: DotNode[] = [];
 
@@ -97,45 +96,44 @@ export default function LandingPage() {
 
     const draw = () => {
       ctx.clearRect(0, 0, width, height);
-      const radSq = repulsionRadius * repulsionRadius;
+      const glowRadiusSq = glowRadius * glowRadius;
+      const mx = mousePos.current.x;
+      const my = mousePos.current.y;
+
+      // Single path batch draw for static at-rest dots to maximize performance
+      ctx.beginPath();
+      const activeDots: { dot: DotNode; factor: number; size: number; color: string }[] = [];
 
       for (let i = 0; i < dots.length; i++) {
         const dot = dots[i];
         
-        // Physics update: calculate squared distance first to optimize performance
-        const dx = dot.x - mousePos.current.x;
-        const dy = dot.y - mousePos.current.y;
+        const dx = dot.x - mx;
+        const dy = dot.y - my;
         const distSq = dx * dx + dy * dy;
 
-        let radius = 0.8;
-        let color = "rgba(156, 163, 175, 0.07)"; // Default dim gray dot
+        let isActive = false;
+        let factor = 0;
 
-        if (distSq < radSq) {
+        if (distSq < glowRadiusSq) {
           const dist = Math.sqrt(distSq);
-          const force = (repulsionRadius - dist) / repulsionRadius;
-          const angle = Math.atan2(dy, dx);
-          const push = force * repulsionStrength;
-          
-          dot.vx += Math.cos(angle) * push;
-          dot.vy += Math.sin(angle) * push;
-
-          // Proximity visual feedback
-          const factor = 1 - dist / repulsionRadius;
-          radius = 0.8 + factor * 2.2; // Smoothly scale up dot size
-          
-          const rVal = Math.round(99 + factor * 130);
-          const gVal = Math.round(102 + factor * 50);
-          const bVal = Math.round(241 + factor * 14);
-          const opacity = 0.07 + factor * 0.75;
-          color = `rgba(${rVal}, ${gVal}, ${bVal}, ${opacity})`;
+          factor = 1 - dist / glowRadius;
+          isActive = true;
         }
 
-        // Apply spring-back force to home coordinates
-        const springX = (dot.homeX - dot.x) * springStiffness;
-        const springY = (dot.homeY - dot.y) * springStiffness;
+        // Apply very subtle push force (max 2.5px displacement)
+        if (isActive) {
+          const angle = Math.atan2(dy, dx);
+          const push = factor * 2.0;
+          dot.vx += Math.cos(angle) * push;
+          dot.vy += Math.sin(angle) * push;
+        }
 
-        dot.vx += springX;
-        dot.vy += springY;
+        // Spring-back force to home coordinates
+        const sx = (dot.homeX - dot.x) * springStiffness;
+        const sy = (dot.homeY - dot.y) * springStiffness;
+
+        dot.vx += sx;
+        dot.vy += sy;
 
         // Apply damping
         dot.vx *= damping;
@@ -145,8 +143,42 @@ export default function LandingPage() {
         dot.x += dot.vx;
         dot.y += dot.vy;
 
+        // Check if dot is active/displaced or within mouse proximity
+        const distFromHomeSq = (dot.x - dot.homeX) * (dot.x - dot.homeX) + (dot.y - dot.homeY) * (dot.y - dot.homeY);
+        const isDisplaced = distFromHomeSq > 0.01;
+
+        if (isActive || isDisplaced) {
+          const size = 1.0 + factor * 1.5; // Scale up to 2.5px radius
+          
+          // Smooth color transitions: White center, blueish edges, fading opacity
+          let r = 255;
+          let g = 255;
+          let b = 255;
+          let a = 0.04 + factor * 0.86; // Fades from 0.04 to 0.90
+
+          if (factor > 0) {
+            g = Math.round(255 - (1 - factor) * 100);
+            b = 255;
+          }
+          const color = `rgba(${r}, ${g}, ${b}, ${a})`;
+
+          activeDots.push({ dot, factor, size, color });
+        } else {
+          // Draw standard dot at rest
+          ctx.moveTo(dot.x, dot.y);
+          ctx.arc(dot.x, dot.y, 0.8, 0, Math.PI * 2);
+        }
+      }
+
+      // Draw all background dots
+      ctx.fillStyle = "rgba(255, 255, 255, 0.04)";
+      ctx.fill();
+
+      // Draw all active glowing dots
+      for (let j = 0; j < activeDots.length; j++) {
+        const { dot, size, color } = activeDots[j];
         ctx.beginPath();
-        ctx.arc(dot.x, dot.y, radius, 0, Math.PI * 2);
+        ctx.arc(dot.x, dot.y, size, 0, Math.PI * 2);
         ctx.fillStyle = color;
         ctx.fill();
       }
@@ -344,6 +376,13 @@ export default function LandingPage() {
         }
         .animate-pulse-slow {
           animation: pulse-slow 8s ease-in-out infinite;
+        }
+        @keyframes glow {
+          0%, 100% { filter: brightness(1); }
+          50% { filter: brightness(1.3); }
+        }
+        .animate-glow {
+          animation: glow 3s ease-in-out infinite;
         }
       `}</style>
     </main>
