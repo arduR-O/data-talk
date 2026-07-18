@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { API_BASE } from '../lib/api';
 
 declare global {
   interface Window {
@@ -25,7 +26,7 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:8000/api/auth/login', {
+      const response = await fetch(`${API_BASE}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -39,14 +40,16 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (response.ok) {
-        // Save token to localStorage
-        localStorage.setItem('token', data.data.token);
-        localStorage.setItem('user', JSON.stringify(data.data));
-        
-        // Save to sessionStorage if "Remember me" is not checked
-        if (!rememberMe) {
+        if (rememberMe) {
+          localStorage.setItem('token', data.data.token);
+          localStorage.setItem('user', JSON.stringify(data.data));
+          sessionStorage.removeItem('token');
+          sessionStorage.removeItem('user');
+        } else {
           sessionStorage.setItem('token', data.data.token);
           sessionStorage.setItem('user', JSON.stringify(data.data));
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
         }
 
         // Show success message
@@ -65,43 +68,7 @@ export default function LoginPage() {
     }
   };
 
-  // Demo login for testing
-  const handleDemoLogin = async () => {
-    setEmail('demo@example.com');
-    setPassword('demo12345');
-    setLoading(true);
-    setError('');
 
-    try {
-      const response = await fetch('http://localhost:8000/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: 'demo@example.com',
-          password: 'demo12345',
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        localStorage.setItem('token', data.data.token);
-        localStorage.setItem('user', JSON.stringify(data.data));
-        console.log('Demo login successful:', data);
-        router.push('/playground');
-      } else {
-        // If demo account doesn't exist, suggest signing up first
-        setError('Demo account not found. Please sign up first or use your own credentials.');
-      }
-    } catch (err) {
-      console.error('Demo login error:', err);
-      setError('Backend server might be down. Please ensure the Python server is running on localhost:8000');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -125,9 +92,9 @@ export default function LoginPage() {
 
         window.google.accounts.id.initialize({
           client_id: clientId,
-          callback: async (response: any) => {
+            callback: async (response: any) => {
             try {
-              const res = await fetch('http://localhost:8000/api/auth/google', {
+              const res = await fetch(`${API_BASE}/api/auth/google`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -140,8 +107,17 @@ export default function LoginPage() {
               const data = await res.json();
 
               if (res.ok) {
-                localStorage.setItem('token', data.data.token);
-                localStorage.setItem('user', JSON.stringify(data.data));
+                if (rememberMe) {
+                  localStorage.setItem('token', data.data.token);
+                  localStorage.setItem('user', JSON.stringify(data.data));
+                  sessionStorage.removeItem('token');
+                  sessionStorage.removeItem('user');
+                } else {
+                  sessionStorage.setItem('token', data.data.token);
+                  sessionStorage.setItem('user', JSON.stringify(data.data));
+                  localStorage.removeItem('token');
+                  localStorage.removeItem('user');
+                }
                 router.push('/playground');
               } else {
                 setError(data.detail || 'Google authentication failed.');
@@ -150,7 +126,7 @@ export default function LoginPage() {
               console.error('Google callback error:', err);
               setError('Failed to authenticate Google token with backend.');
             } finally {
-              setLoading(false);
+               setLoading(false);
             }
           },
         });
@@ -169,7 +145,7 @@ export default function LoginPage() {
       }
 
       try {
-        const response = await fetch('http://localhost:8000/api/auth/google', {
+        const response = await fetch(`${API_BASE}/api/auth/google`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
