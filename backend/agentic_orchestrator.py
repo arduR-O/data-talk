@@ -113,6 +113,7 @@ class DebugLogger:
 
 # Thread-safe request logger context var
 _debug_logger_var = contextvars.ContextVar("debug_logger_var")
+_stream_callback_var = contextvars.ContextVar("stream_callback_var", default=None)
 
 class ThreadSafeDebugLogger:
     """Thread-safe proxy for request-scoped DebugLogger"""
@@ -295,6 +296,20 @@ def create_agent_node(tools: list):
         
         try:
             response_message = llm_with_tools.invoke(messages)
+            
+            # Stream final tokens if callback is registered and there are no tool calls
+            if not response_message.tool_calls:
+                callback = _stream_callback_var.get()
+                if callback:
+                    content_chunks = []
+                    try:
+                        for chunk in llm.stream(messages):
+                            if chunk.content:
+                                content_chunks.append(chunk.content)
+                                callback(chunk.content)
+                        response_message.content = "".join(content_chunks)
+                    except Exception as stream_err:
+                        debug_logger.error("Streaming failed, falling back to invoke", stream_err)
         except Exception as e:
             debug_logger.error("Groq API call failed", e)
             raise
