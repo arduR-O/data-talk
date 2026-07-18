@@ -37,11 +37,55 @@ async def root():
 
 @app.get("/health")
 async def health_check():
+    import os
+    
+    # 1. Database check (SQLite / MongoDB fallback)
+    db_status = "operational"
+    try:
+        from models.chat_history import ChatHistoryModel
+        history = ChatHistoryModel()
+        if history.use_sqlite:
+            import sqlite3
+            conn = sqlite3.connect(history.sqlite_path)
+            conn.cursor().execute("SELECT 1")
+            conn.close()
+        else:
+            history.client.admin.command('ping')
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+
+    # 2. LLM check (Groq)
+    llm_status = "operational"
+    try:
+        from utils.llm_client import get_llm
+        get_llm()
+        if not os.getenv("GROQ_API_KEY"):
+            llm_status = "error: GROQ_API_KEY environment variable missing"
+    except Exception as e:
+        llm_status = f"error: {str(e)}"
+
+    # 3. Vector store check (Pinecone)
+    vector_status = "operational"
+    try:
+        if not os.getenv("PINECONE_API_KEY"):
+            vector_status = "error: PINECONE_API_KEY environment variable missing"
+        else:
+            from pinecone import Pinecone
+            pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+            pc.list_indexes()
+    except Exception as e:
+        vector_status = f"error: {str(e)}"
+
+    overall_status = "healthy"
+    if "error" in db_status or "error" in llm_status or "error" in vector_status:
+        overall_status = "unhealthy"
+
     return {
-        "status": "healthy", 
+        "status": overall_status, 
         "services": {
-            "authentication": "operational",
-            "chat": "operational"
+            "database": db_status,
+            "llm": llm_status,
+            "vector_store": vector_status
         }
     }
 
