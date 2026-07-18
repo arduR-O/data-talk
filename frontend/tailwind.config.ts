@@ -15,9 +15,9 @@ const config: Config = {
         'gradient-conic':
           'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
       },
-       colors: {
-        primary: '#0D1117',   // dark inner card areas
-        secondary: '#161B22', // card background
+      colors: {
+        primary: '#0D1117',
+        secondary: '#161B22',
         accent: '#58A6FF',    // buttons and highlights
         success: '#2EA043',   // positive actions
         warning: '#D29922',   // warnings
