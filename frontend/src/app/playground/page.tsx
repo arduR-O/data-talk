@@ -15,21 +15,32 @@ interface User {
 export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      try {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
-      }
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const userData = localStorage.getItem('user') || sessionStorage.getItem('user');
+    
+    if (!token || !userData) {
+      router.push('/login');
+      return;
     }
-  }, []);
+    
+    try {
+      const parsedUser = JSON.parse(userData);
+      setUser(parsedUser);
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      sessionStorage.removeItem('user');
+      sessionStorage.removeItem('token');
+      router.push('/login');
+    } finally {
+      setLoading(false);
+    }
+  }, [router]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -40,6 +51,17 @@ export default function Home() {
     setIsDropdownOpen(false);
     router.push('/');
   };
+
+  if (loading) {
+    return (
+      <main className="bg-slate-950 min-h-screen flex flex-col items-center justify-center text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-xs text-slate-400 font-mono">Verifying authentication...</span>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/20 min-h-screen flex flex-col items-center relative overflow-hidden">
@@ -64,7 +86,7 @@ export default function Home() {
                 className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 hover:bg-white/10 transition-all duration-300"
               >
                 <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-xs font-bold">
-                  {user.firstName[0]}
+                  {user && user.firstName ? user.firstName[0].toUpperCase() : 'U'}
                 </div>
                 <span className="text-white text-xs font-semibold hidden sm:block">
                   {user.firstName} {user.lastName}
