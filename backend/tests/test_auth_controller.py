@@ -4,7 +4,7 @@ Unit tests for AuthController
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from controllers.auth_controller import AuthController
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import jwt
 import bcrypt
 
@@ -95,8 +95,8 @@ class TestAuthController:
         payload = {
             'user_id': 'test_id',
             'email': 'test@example.com',
-            'exp': datetime.utcnow() - timedelta(hours=1),
-            'iat': datetime.utcnow() - timedelta(hours=2)
+            'exp': datetime.now(timezone.utc) - timedelta(hours=1),
+            'iat': datetime.now(timezone.utc) - timedelta(hours=2)
         }
         expired_token = jwt.encode(
             payload, 

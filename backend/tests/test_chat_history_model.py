@@ -5,7 +5,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from models.chat_history import ChatHistoryModel
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class TestChatHistoryModel:
@@ -63,14 +63,14 @@ class TestChatHistoryModel:
                 'user_id': user_id,
                 'type': 'user',
                 'content': 'Hello',
-                'timestamp': datetime.utcnow()
+                'timestamp': datetime.now(timezone.utc)
             },
             {
                 '_id': ObjectId(),
                 'user_id': user_id,
                 'type': 'assistant',
                 'content': 'Hi there!',
-                'timestamp': datetime.utcnow()
+                'timestamp': datetime.now(timezone.utc)
             }
         ]
         

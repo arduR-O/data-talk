@@ -3,7 +3,7 @@ import os
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -61,8 +61,8 @@ class UserModel:
         return sqlite3.connect(self.sqlite_path)
     
     def create_user(self, user_data):
-        user_data['created_at'] = datetime.utcnow()
-        user_data['updated_at'] = datetime.utcnow()
+        user_data['created_at'] = datetime.now(timezone.utc)
+        user_data['updated_at'] = datetime.now(timezone.utc)
         
         if not self.use_sqlite:
             try:
@@ -167,7 +167,7 @@ class UserModel:
                     {
                         '$set': {
                             'db_url': db_url,
-                            'updated_at': datetime.utcnow()
+                            'updated_at': datetime.now(timezone.utc)
                         }
                     }
                 )
@@ -181,7 +181,7 @@ class UserModel:
                     UPDATE users 
                     SET db_url = ?, updated_at = ? 
                     WHERE id = ?
-                """, (db_url, datetime.utcnow().isoformat(), str(user_id)))
+                """, (db_url, datetime.now(timezone.utc).isoformat(), str(user_id)))
                 conn.commit()
                 updated_rows = cursor.rowcount
                 conn.close()

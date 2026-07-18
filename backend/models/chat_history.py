@@ -2,7 +2,7 @@ import sqlite3
 import os
 from pymongo import MongoClient
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -63,7 +63,7 @@ class ChatHistoryModel:
                 'user_id': user_id,
                 'type': message_type,
                 'content': content,
-                'timestamp': datetime.utcnow()
+                'timestamp': datetime.now(timezone.utc)
             }
             result = self.chat_history.insert_one(message_data)
             return str(result.inserted_id)
@@ -79,7 +79,7 @@ class ChatHistoryModel:
                 user_id,
                 message_type,
                 content,
-                datetime.utcnow().isoformat()
+                datetime.now(timezone.utc).isoformat()
             ))
             conn.commit()
             conn.close()

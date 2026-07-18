@@ -5,7 +5,7 @@ import pytest
 import os
 from unittest.mock import Mock, MagicMock, patch
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Set test environment variables
 os.environ['JWT_SECRET_KEY'] = 'test-secret-key-for-unit-tests'
@@ -40,8 +40,8 @@ def mock_user_db_data():
         'email': 'john.doe@example.com',
         'password': '$2b$12$hashedpassword',  # Mock bcrypt hash
         'is_active': True,
-        'created_at': datetime.utcnow(),
-        'updated_at': datetime.utcnow()
+        'created_at': datetime.now(timezone.utc),
+        'updated_at': datetime.now(timezone.utc)
     }
 
 
@@ -67,7 +67,7 @@ def mock_chat_message():
         'id': str(ObjectId()),
         'type': 'user',
         'content': 'What is the weather?',
-        'timestamp': datetime.utcnow().isoformat()
+        'timestamp': datetime.now(timezone.utc).isoformat()
     }
 
 

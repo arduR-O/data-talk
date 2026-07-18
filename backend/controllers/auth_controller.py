@@ -1,7 +1,7 @@
 import bcrypt
 import jwt
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from models.users import UserModel
 from dotenv import load_dotenv
 from google.oauth2 import id_token as google_id_token
@@ -45,8 +45,8 @@ class AuthController:
         payload = {
             'user_id': user_id,
             'email': email,
-            'exp': datetime.utcnow() + timedelta(hours=self.jwt_expiration),
-            'iat': datetime.utcnow()
+            'exp': datetime.now(timezone.utc) + timedelta(hours=self.jwt_expiration),
+            'iat': datetime.now(timezone.utc)
         }
         return jwt.encode(payload, self.jwt_secret, algorithm=self.jwt_algorithm)
     
