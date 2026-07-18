@@ -17,7 +17,7 @@ class ChatController:
         self.user_model = UserModel()
         self.orchestrator = get_orchestrator()
     
-    def process_message(self, user_id: str, question: str) -> dict:
+    def process_message(self, user_id: str, question: str, session_id: str = 'default') -> dict:
         """
         Process a chat message with intelligent routing.
         
@@ -30,6 +30,7 @@ class ChatController:
         Args:
             user_id: User's unique identifier
             question: User's question
+            session_id: Conversation session identifier
         
         Returns:
             dict with success status and response data
@@ -39,7 +40,7 @@ class ChatController:
             db_url = self.user_model.get_db_url(user_id)
             
             # Load conversation history from database
-            history_messages = self.chat_history_model.get_user_history(user_id)
+            history_messages = self.chat_history_model.get_user_history(user_id, session_id=session_id)
             
             # Convert database messages to LangChain messages
             conversation_history = []
@@ -50,7 +51,7 @@ class ChatController:
                     conversation_history.append(AIMessage(content=msg['content']))
             
             # Save user message to database first
-            self.chat_history_model.add_message(user_id, 'user', question)
+            self.chat_history_model.add_message(user_id, 'user', question, session_id=session_id)
             
             # Process through unified orchestrator
             result = self.orchestrator.chat(
@@ -66,7 +67,7 @@ class ChatController:
             resources = result['resources']
             
             # Save assistant response to database
-            self.chat_history_model.add_message(user_id, 'assistant', answer)
+            self.chat_history_model.add_message(user_id, 'assistant', answer, session_id=session_id)
             
             return {
                 'success': True,
@@ -86,18 +87,19 @@ class ChatController:
                 'status_code': 500
             }
     
-    def get_history(self, user_id: str) -> dict:
+    def get_history(self, user_id: str, session_id: str = 'default') -> dict:
         """
-        Get chat history for a user.
+        Get chat history for a user session.
         
         Args:
             user_id: User's unique identifier
+            session_id: Conversation session identifier
         
         Returns:
             dict with success status and messages
         """
         try:
-            messages = self.chat_history_model.get_user_history(user_id)
+            messages = self.chat_history_model.get_user_history(user_id, session_id=session_id)
             return {
                 'success': True,
                 'data': {
@@ -112,18 +114,19 @@ class ChatController:
                 'status_code': 500
             }
     
-    def clear_history(self, user_id: str) -> dict:
+    def clear_history(self, user_id: str, session_id: str = 'default') -> dict:
         """
-        Clear chat history for a user.
+        Clear chat history for a user session.
         
         Args:
             user_id: User's unique identifier
+            session_id: Conversation session identifier
         
         Returns:
             dict with success status and deletion count
         """
         try:
-            deleted_count = self.chat_history_model.clear_user_history(user_id)
+            deleted_count = self.chat_history_model.clear_user_history(user_id, session_id=session_id)
             return {
                 'success': True,
                 'data': {
@@ -135,5 +138,31 @@ class ChatController:
             return {
                 'success': False,
                 'message': f'Failed to clear chat history: {str(e)}',
+                'status_code': 500
+            }
+
+    def get_sessions(self, user_id: str) -> dict:
+        """
+        Get all chat sessions for a user.
+        
+        Args:
+            user_id: User's unique identifier
+        
+        Returns:
+            dict with success status and list of sessions
+        """
+        try:
+            sessions = self.chat_history_model.get_user_sessions(user_id)
+            return {
+                'success': True,
+                'data': {
+                    'sessions': sessions
+                },
+                'status_code': 200
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f'Failed to retrieve sessions: {str(e)}',
                 'status_code': 500
             }
