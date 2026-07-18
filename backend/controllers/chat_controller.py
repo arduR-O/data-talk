@@ -1,4 +1,5 @@
 # from unified_orchestrator import get_orchestrator
+import os
 from agentic_orchestrator import get_orchestrator
 from models.chat_history import ChatHistoryModel
 from models.users import UserModel
@@ -57,7 +58,7 @@ class ChatController:
                 user_id=user_id,
                 conversation_history=conversation_history,
                 db_url=db_url,
-                debug=True
+                debug=os.getenv("DEBUG_MODE", "false").lower() == "true"
             )
             
             answer = result['answer']
