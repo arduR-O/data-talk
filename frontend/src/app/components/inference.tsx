@@ -227,30 +227,96 @@ export default function Inference() {
     const currentQuery = query;
     setQuery('');
     setIsLoading(true);
+    setError('');
 
     try {
-      const response = await axios.post(`${API_BASE}/api/chat`, {
-        question: currentQuery,
-      }, {
+      const response = await fetch(`${API_BASE}/api/chat/stream`, {
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        }
+        },
+        body: JSON.stringify({ question: currentQuery })
       });
-      
-      const aiResponse: Message = {
+
+      if (!response.ok) {
+        throw new Error(`Chat failed with status ${response.status}`);
+      }
+
+      if (!response.body) {
+        throw new Error('No response body returned from server');
+      }
+
+      // Add a placeholder message for the assistant response
+      const assistantPlaceholder: Message = {
         type: 'assistant',
-        content: response.data.response,
+        content: '',
         timestamp: new Date().toLocaleTimeString(),
-        routing: response.data.routing,
-        debug_logs: response.data.debug_logs
+        routing: 'general',
+        debug_logs: []
       };
-      setResponses(prev => [...prev, aiResponse]);
-      
-    } catch (error: any) {
-      console.error('Chat error:', error);
+
+      setResponses(prev => [...prev, assistantPlaceholder]);
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const cleanedLine = line.trim();
+          if (!cleanedLine.startsWith('data: ')) continue;
+
+          try {
+            const dataStr = cleanedLine.slice(6);
+            const parsedData = JSON.parse(dataStr);
+
+            if (parsedData.error) {
+              setError(parsedData.error);
+              continue;
+            }
+
+            if (parsedData.done) {
+              setResponses(prev => {
+                const updated = [...prev];
+                const lastIdx = updated.length - 1;
+                if (lastIdx >= 0 && updated[lastIdx].type === 'assistant') {
+                  updated[lastIdx].routing = parsedData.routing || updated[lastIdx].routing;
+                  updated[lastIdx].debug_logs = parsedData.debug_logs || updated[lastIdx].debug_logs;
+                }
+                return updated;
+              });
+              break;
+            }
+
+            if (parsedData.token) {
+              setResponses(prev => {
+                const updated = [...prev];
+                const lastIdx = updated.length - 1;
+                if (lastIdx >= 0 && updated[lastIdx].type === 'assistant') {
+                  updated[lastIdx].content += parsedData.token;
+                }
+                return updated;
+              });
+            }
+          } catch (jsonErr) {
+            console.error('Error parsing SSE chunk:', jsonErr);
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error('Chat error:', err);
       const errorMessage: Message = {
         type: 'assistant',
-        content: error.response?.data?.detail || 'There was an error processing your request. Please try again.',
+        content: err.message || 'There was an error processing your request. Please try again.',
         timestamp: new Date().toLocaleTimeString()
       };
       setResponses(prev => [...prev, errorMessage]);
