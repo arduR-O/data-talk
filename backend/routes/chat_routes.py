@@ -1,4 +1,7 @@
+import json
+import asyncio
 from fastapi import APIRouter, HTTPException, Header, File, UploadFile, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from controllers.chat_controller import ChatController
 from controllers.auth_controller import AuthController
 from schemas.chat_schemas import ChatRequest, ChatResponse, DatabaseUrlRequest, DatabaseUrlResponse
@@ -8,6 +11,7 @@ from pathlib import Path
 from datetime import datetime
 import pandas as pd
 from sqlalchemy import create_engine
+from agentic_orchestrator import _stream_callback_var
 
 router = APIRouter()
 chat_controller = ChatController()
@@ -54,6 +58,60 @@ async def chat_endpoint(
             status_code=result['status_code'],
             detail=result['message']
         )
+
+
+@router.post("/chat/stream")
+async def chat_stream_endpoint(
+    chat_request: ChatRequest,
+    authorization: str = Header(...)
+):
+    user_id = get_user_id_from_token(authorization)
+    
+    token_queue = asyncio.Queue()
+    loop = asyncio.get_event_loop()
+    
+    def stream_callback(token: str):
+        try:
+            loop.call_soon_threadsafe(token_queue.put_nowait, token)
+        except Exception:
+            pass
+
+    async def event_generator():
+        token = _stream_callback_var.set(stream_callback)
+        
+        chat_task = asyncio.create_task(
+            asyncio.to_thread(
+                chat_controller.process_message,
+                user_id,
+                chat_request.question
+            )
+        )
+        
+        try:
+            while not chat_task.done() or not token_queue.empty():
+                try:
+                    token_val = await asyncio.wait_for(token_queue.get(), timeout=0.05)
+                    yield f"data: {json.dumps({'token': token_val})}\n\n"
+                    token_queue.task_done()
+                except asyncio.TimeoutError:
+                    continue
+            
+            result = await chat_task
+            if result['success']:
+                final_data = {
+                    "done": True,
+                    "routing": result['data'].get('routing'),
+                    "debug_logs": result['data'].get('debug_logs', [])
+                }
+                yield f"data: {json.dumps(final_data)}\n\n"
+            else:
+                yield f"data: {json.dumps({'error': result['message']})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        finally:
+            _stream_callback_var.reset(token)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @router.get("/chat/history")
