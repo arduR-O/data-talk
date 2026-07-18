@@ -36,7 +36,9 @@ class AuthController:
                 password.encode('utf-8'), 
                 hashed_password.encode('utf-8')
             )
-        except:
+        except Exception as e:
+            import logging
+            logging.error(f"Password verification error: {e}")
             return False
     
     def generate_token(self, user_id: str, email: str) -> str:
@@ -142,6 +144,7 @@ class AuthController:
     def google_login(self, id_token_str: str) -> dict:
         try:
             client_id = os.getenv("GOOGLE_CLIENT_ID")
+            allow_mock = os.getenv("ALLOW_MOCK_OAUTH", "false").lower() == "true"
             
             try:
                 idinfo = google_id_token.verify_oauth2_token(
@@ -150,7 +153,7 @@ class AuthController:
                     client_id
                 )
             except Exception as e:
-                if id_token_str.startswith("mock_google_"):
+                if allow_mock and id_token_str.startswith("mock_google_"):
                     email = id_token_str.replace("mock_google_", "")
                     name_part = email.split("@")[0]
                     idinfo = {
