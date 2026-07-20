@@ -1,4 +1,9 @@
 import os
+import socket
+
+# Set application-wide default socket timeout to prevent offline API hangs
+socket.setdefaulttimeout(15.0)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.auth_routes import router as auth_router

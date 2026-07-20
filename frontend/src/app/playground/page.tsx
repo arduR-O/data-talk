@@ -65,7 +65,7 @@ export default function Home() {
   }
 
   return (
-    <main className="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/20 min-h-screen flex flex-col items-center relative overflow-hidden">
+    <main className="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/20 h-screen flex flex-col items-center relative overflow-hidden">
       
       {/* Top navigation bar */}
       <header className="w-full border-b border-white/5 bg-slate-950/40 backdrop-blur-md px-6 py-4 flex items-center justify-between relative z-50">
@@ -132,15 +132,15 @@ export default function Home() {
       )}
 
       {/* Main Split Screen Area with resizable panels */}
-      <div className="flex-1 w-full max-w-[1600px] p-6 h-[calc(100vh-73px)] relative z-10 overflow-hidden">
+      <div className="flex-1 w-full max-w-[1600px] p-6 min-h-0 relative z-10 overflow-hidden">
         <PanelGroup direction="horizontal" orientation="horizontal" id="playground-group" className="h-full">
           <Panel id="workspace-panel" defaultSize="35%" minSize="20%" maxSize="60%">
             <div className="h-full overflow-y-auto scrollbar-hide pr-1">
               <UploadCard />
             </div>
           </Panel>
-          <PanelResizeHandle id="resize-handle" className="w-2 flex items-center justify-center group hover:bg-white/5 rounded-lg transition-colors cursor-col-resize z-20">
-            <div className="w-0.5 h-8 bg-white/20 rounded-full group-hover:bg-blue-400 group-active:bg-blue-500 transition-colors" />
+          <PanelResizeHandle id="resize-handle" className="w-1.5 flex items-center justify-center cursor-col-resize z-20 transition-all border-l border-white/5 hover:border-white/20">
+            <div className="w-0.5 h-6 bg-white/10 rounded-full transition-colors" />
           </PanelResizeHandle>
           <Panel id="chat-panel" defaultSize="65%" minSize="30%">
             <div className="h-full overflow-hidden">

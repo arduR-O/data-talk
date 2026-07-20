@@ -41,31 +41,31 @@ class DocumentVectorService:
                 print(f"📊 Detected existing index dimension: {existing_dimension}")
                 # Automatically match the embedding model to the index dimension
                 if existing_dimension == 3072:
-                    embedding_model = "models/embedding-001"  # 3072 dimensions
-                    print("✅ Auto-selected: embedding-001 (3072 dims)")
+                    embedding_model = "models/gemini-embedding-001"  # 3072 dimensions
+                    print("✅ Auto-selected: gemini-embedding-001 (3072 dims)")
                 elif existing_dimension == 768:
-                    embedding_model = "models/text-embedding-004"  # 768 dimensions
-                    print("✅ Auto-selected: text-embedding-004 (768 dims)")
+                    embedding_model = "models/gemini-embedding-2"  # 768/3072 dimensions
+                    print("✅ Auto-selected: gemini-embedding-2 (768/3072 dims)")
                 else:
                     raise ValueError(f"Unsupported index dimension: {existing_dimension}. Expected 768 or 3072.")
                 self.embedding_dimension = existing_dimension
             else:
-                # No existing index - use default (embedding-001 with 3072 dims)
+                # No existing index - use default (gemini-embedding-001 with 3072 dims)
                 if embedding_model is None:
-                    embedding_model = "models/embedding-001"
+                    embedding_model = "models/gemini-embedding-001"
                 print(f"📝 No existing index. Will create with model: {embedding_model}")
                 
                 # Determine dimension based on model
-                if "embedding-001" in embedding_model:
+                if "gemini-embedding-001" in embedding_model:
                     self.embedding_dimension = 3072
-                elif "text-embedding-004" in embedding_model:
-                    self.embedding_dimension = 768
+                elif "gemini-embedding-2" in embedding_model:
+                    self.embedding_dimension = 3072
                 else:
                     # Default fallback
                     self.embedding_dimension = 3072
             
             # Initialize embeddings with auto-detected model
-            self.embeddings = GoogleGenerativeAIEmbeddings(model=embedding_model)
+            self.embeddings = GoogleGenerativeAIEmbeddings(model=embedding_model, transport="rest")
             print(f"🔧 Using embedding model: {embedding_model} ({self.embedding_dimension} dims)")
             
             # Initialize vector store
@@ -80,14 +80,10 @@ class DocumentVectorService:
     
     def _get_index_dimension(self) -> Optional[int]:
         """Get the dimension of existing index, or None if doesn't exist"""
-        try:
-            if self.index_name in self.pc.list_indexes().names():
-                index_info = self.pc.describe_index(self.index_name)
-                return index_info.dimension
-            return None
-        except Exception as e:
-            print(f"Error checking index dimension: {e}")
-            return None
+        if self.index_name in self.pc.list_indexes().names():
+            index_info = self.pc.describe_index(self.index_name)
+            return index_info.dimension
+        return None
     
     def _init_vector_store(self) -> PineconeVectorStore:
         """Initialize Pinecone vector store with proper index configuration"""

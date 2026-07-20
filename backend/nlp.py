@@ -161,11 +161,26 @@ Only use the following tables:
 {table_info}
 """
 
-user_prompt = "Question: {input}"
+user_prompt = "Recent conversation (use this to resolve follow-up references like \"him\", \"that department\", \"last month\"):\n{history}\n\nQuestion: {input}"
 
 query_prompt_template = ChatPromptTemplate(
     [("system", system_message), ("user", user_prompt)]
 )
+
+def _format_history(history: list[BaseMessage], max_turns: int = 3) -> str:
+    """Format the last few turns as plain text for the SQL-writing prompt.
+    Previously this was accepted as a parameter but never actually read anywhere --
+    conversation_history was threaded through State and appended to after every
+    call, but write_query() below only ever used state['question'] in isolation,
+    so follow-up questions referencing prior turns had nothing to resolve against."""
+    if not history:
+        return "(no prior conversation)"
+
+    lines = []
+    for msg in history[-(max_turns * 2):]:
+        role = "User" if isinstance(msg, HumanMessage) else "Assistant"
+        lines.append(f"{role}: {msg.content}")
+    return "\n".join(lines)
 
 class QueryOutput(TypedDict):
     query: Annotated[str, ..., "Syntactically valid SQL query."]
@@ -205,11 +220,33 @@ def create_database_graph(db_url: str):
                 "top_k": 10,
                 "table_info": db.get_table_info(),
                 "input": state["question"],
+                "history": _format_history(state.get("conversation_history", [])),
             }
         )
-        structured_llm = llm.with_structured_output(QueryOutput)
-        result = structured_llm.invoke(prompt)
-        return {"query": result["query"]}
+        try:
+            structured_llm = llm.with_structured_output(QueryOutput)
+            result = structured_llm.invoke(prompt)
+            query = result["query"]
+        except Exception as struct_err:
+            # Fall back to raw text invocation and SQL regex parsing if structured schema fails
+            text_prompt = (
+                f"{prompt.to_string()}\n\n"
+                "Write a syntactically correct SQL query. Output ONLY the raw SQL query "
+                "enclosed in a ```sql ... ``` code block. Do NOT write any other text or explanation."
+            )
+            try:
+                raw_res = llm.invoke(text_prompt).content
+                sql_match = re.search(r"```sql\s*(.*?)\s*```", raw_res, re.DOTALL | re.IGNORECASE)
+                if sql_match:
+                    query = sql_match.group(1).strip()
+                else:
+                    # Clean up lines and extract raw SELECT text
+                    clean_lines = [l.strip() for l in raw_res.split("\n") if l.strip()]
+                    query_lines = [l for l in clean_lines if not l.startswith("-") and not l.startswith("/")]
+                    query = " ".join(query_lines).replace("```", "").strip()
+            except Exception as fallback_err:
+                raise ValueError(f"SQL generation failed: {struct_err} -> Fallback error: {fallback_err}")
+        return {"query": query}
 
     def execute_query(state: State):
         execute_query_tool = QuerySQLDatabaseTool(db=db)
@@ -223,14 +260,18 @@ def create_database_graph(db_url: str):
         is_select = query.strip().lower().startswith("select")
         
         try:
-            result = execute_query_tool.invoke(query)
+            # We use include_columns=True to provide explicit column names so the LLM knows which field represents which value.
+            if is_select:
+                result = db.run(query, include_columns=True)
+            else:
+                result = db.run(query)
         except Exception as e:
             return {"result": f"Error executing query: {str(e)}"}
 
         if not is_select:
             return {"result": "Operation completed successfully."}
         
-        return {"result": result}
+        return {"result": str(result)}
 
     def generate_answer(state: State):
         prompt = (

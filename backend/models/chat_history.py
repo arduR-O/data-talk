@@ -132,12 +132,18 @@ class ChatHistoryModel:
             
     def clear_user_history(self, user_id: str, session_id: str = 'default'):
         if not self.use_sqlite:
-            result = self.chat_history.delete_many({'user_id': user_id, 'session_id': session_id})
+            query = {'user_id': user_id}
+            if session_id != 'all':
+                query['session_id'] = session_id
+            result = self.chat_history.delete_many(query)
             return result.deleted_count
         else:
             conn = self._sqlite_conn()
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM chat_history WHERE user_id = ? AND COALESCE(session_id, 'default') = ?", (user_id, session_id))
+            if session_id == 'all':
+                cursor.execute("DELETE FROM chat_history WHERE user_id = ?", (user_id,))
+            else:
+                cursor.execute("DELETE FROM chat_history WHERE user_id = ? AND COALESCE(session_id, 'default') = ?", (user_id, session_id))
             deleted_count = cursor.rowcount
             conn.commit()
             conn.close()

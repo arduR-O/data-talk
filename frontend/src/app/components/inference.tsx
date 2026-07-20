@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import axios from "axios";
-import { Sparkles, Trash2, Send, Brain, Terminal, ChevronDown, Bot, X, Plus } from "lucide-react";
+import { Sparkles, Trash2, Send, Brain, Terminal, ChevronDown, Bot, X, Plus, Loader2 } from "lucide-react";
 import { API_BASE } from '../lib/api';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -247,10 +247,29 @@ const MarkdownText = ({ content }: { content: string }) => {
     if (line.startsWith('```chart')) {
       const chartJsonLines: string[] = [];
       let chartIdx = idx + 1;
-      while (chartIdx < lines.length && !lines[chartIdx].startsWith('```')) {
+      let hasClosing = false;
+      while (chartIdx < lines.length) {
+        if (lines[chartIdx].startsWith('```')) {
+          hasClosing = true;
+          break;
+        }
         chartJsonLines.push(lines[chartIdx]);
         chartIdx++;
       }
+      
+      if (!hasClosing) {
+        renderedElements.push(
+          <div key={`chart-loading-${idx}`} className="my-4 p-4 bg-slate-950/40 border border-white/5 rounded-2xl animate-pulse">
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
+              <span>Generating visualization...</span>
+            </div>
+          </div>
+        );
+        idx = chartIdx - 1; // Skip ahead, but let outer loop continue
+        continue;
+      }
+      
       idx = chartIdx;
       renderedElements.push(<ChartRenderer key={`chart-${idx}`} jsonStr={chartJsonLines.join('\n')} />);
       continue;
@@ -387,10 +406,11 @@ export default function Inference() {
         }
       });
 
+      if (response.data.demo_mode !== undefined) {
+        setIsDemoMode(response.data.demo_mode);
+      }
+
       if (response.data.messages && response.data.messages.length > 0) {
-        if (response.data.demo_mode !== undefined) {
-          setIsDemoMode(response.data.demo_mode);
-        }
 
         const formattedMessages: Message[] = response.data.messages.map((msg: any) => ({
           type: msg.type as 'user' | 'assistant' | 'system',
@@ -426,7 +446,7 @@ export default function Inference() {
 
     setIsClearing(true);
     try {
-      await axios.delete(`${API_BASE}/api/chat/history?session_id=${activeSessionId}`, {
+      await axios.delete(`${API_BASE}/api/chat/history?session_id=all`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -439,6 +459,7 @@ export default function Inference() {
           timestamp: new Date().toLocaleTimeString()
         }
       ]);
+      setActiveSessionId('default');
       loadSessions();
     } catch (error: any) {
       console.error('Failed to clear chat history:', error);
@@ -600,8 +621,11 @@ export default function Inference() {
                 const updated = [...prev];
                 const lastIdx = updated.length - 1;
                 if (lastIdx >= 0 && updated[lastIdx].type === 'assistant') {
-                  updated[lastIdx].routing = parsedData.routing || updated[lastIdx].routing;
-                  updated[lastIdx].debug_logs = parsedData.debug_logs || updated[lastIdx].debug_logs;
+                  updated[lastIdx] = {
+                    ...updated[lastIdx],
+                    routing: parsedData.routing || updated[lastIdx].routing,
+                    debug_logs: parsedData.debug_logs || updated[lastIdx].debug_logs
+                  };
                 }
                 return updated;
               });
@@ -614,7 +638,10 @@ export default function Inference() {
                 const updated = [...prev];
                 const lastIdx = updated.length - 1;
                 if (lastIdx >= 0 && updated[lastIdx].type === 'assistant') {
-                  updated[lastIdx].content += parsedData.token;
+                  updated[lastIdx] = {
+                    ...updated[lastIdx],
+                    content: updated[lastIdx].content + parsedData.token
+                  };
                 }
                 return updated;
               });
@@ -678,32 +705,22 @@ export default function Inference() {
             </div>
           ))}
         </div>
-      </div>
 
-      {/* Main chat window */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
-        {/* Header */}
-        <div className="border-b border-white/5 px-6 py-4 bg-slate-950/20 flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-semibold tracking-tight text-white flex items-center gap-2">
-              <Bot className="w-4 h-4 text-blue-400" />
-              AI Workspace Agent
-            </h2>
-            <p className="text-[10px] text-slate-400 mt-0.5">Observe reasoning steps & dynamic table querying</p>
-          </div>
-          
+        {/* Sidebar Footer */}
+        <div className="p-3 border-t border-white/5 flex items-center justify-between">
+          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Session</span>
           {showClearConfirm ? (
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-red-400 font-semibold">Clear history?</span>
+            <div className="flex items-center gap-1">
+              <span className="text-[9px] text-red-400 font-semibold mr-1">Clear?</span>
               <button
                 onClick={confirmClearHistory}
-                className="px-2 py-1 rounded bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold transition-colors"
+                className="px-1.5 py-0.5 rounded bg-red-600 hover:bg-red-500 text-white text-[9px] font-bold transition-colors"
               >
                 Yes
               </button>
               <button
                 onClick={() => setShowClearConfirm(false)}
-                className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold transition-colors"
+                className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[9px] font-bold transition-colors"
               >
                 No
               </button>
@@ -711,14 +728,19 @@ export default function Inference() {
           ) : (
             <button
               onClick={() => setShowClearConfirm(true)}
-              disabled={isClearing || isLoadingHistory || responses.length <= 1}
-              className="p-1.5 rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              disabled={isClearing || isLoadingHistory}
+              className="p-1 rounded hover:bg-red-500/10 border border-red-500/10 text-red-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 text-[9px] font-semibold"
               title="Clear chat history"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-3 h-3" />
+              <span>Clear History</span>
             </button>
           )}
         </div>
+      </div>
+
+      {/* Main chat window */}
+      <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden">
 
         {/* Demo Mode Banner */}
         {isDemoMode && (
@@ -736,7 +758,7 @@ export default function Inference() {
         )}
 
         {/* Messages Feed */}
-        <div className="flex-1 p-6 overflow-y-auto scrollbar-hide space-y-6 bg-slate-950/10">
+        <div className="flex-1 p-6 overflow-y-auto space-y-6 bg-slate-950/10">
           {isLoadingHistory ? (
             <div className="flex items-center justify-center h-full">
               <div className="flex items-center gap-2.5 text-slate-400 text-xs">
@@ -790,15 +812,8 @@ export default function Inference() {
                         const parsed = message.type === 'assistant' ? extractThink(message.content) : { visible: message.content, think: '' };
                         return (
                           <>
-                            {message.type === 'assistant' ? (
-                              <div className="text-xs leading-relaxed whitespace-pre-wrap space-y-2">
-                                <MarkdownText content={parsed.visible} />
-                              </div>
-                            ) : (
-                              <p className="text-xs leading-relaxed whitespace-pre-wrap">{parsed.visible}</p>
-                            )}
                             {parsed.think && message.type === 'assistant' && (
-                              <details className="mt-2.5 group">
+                              <details className="mb-2.5 group">
                                 <summary className="text-[10px] cursor-pointer select-none text-slate-400 hover:text-slate-200 transition-colors font-semibold flex items-center gap-1">
                                   <Brain className="w-3 h-3 text-purple-400" /> View Agent Thoughts
                                 </summary>
@@ -806,6 +821,13 @@ export default function Inference() {
                                   {parsed.think}
                                 </div>
                               </details>
+                            )}
+                            {message.type === 'assistant' ? (
+                              <div className="text-xs leading-relaxed whitespace-pre-wrap space-y-2">
+                                <MarkdownText content={parsed.visible} />
+                              </div>
+                            ) : (
+                              <p className="text-xs leading-relaxed whitespace-pre-wrap">{parsed.visible}</p>
                             )}
                           </>
                         );

@@ -304,6 +304,8 @@ async def create_upload_files(
     uploads_dir = base_dir / "context" / user_id
     uploads_dir.mkdir(parents=True, exist_ok=True)
     
+    # Track the filenames being uploaded in the current request to avoid deleting them
+    uploading_filenames = {Path(u.filename).name for u in files}
     saved = []
     
     for upload in files:
@@ -333,6 +335,18 @@ async def create_upload_files(
         
         # Branch actions based on file extension
         if ext in ['.db', '.sqlite']:
+            # Clean up all existing files in the uploads folder to start fresh
+            for existing_file in list(uploads_dir.iterdir()):
+                if existing_file.is_file() and existing_file.name not in uploading_filenames:
+                    try:
+                        if existing_file.suffix.lower() in ['.pdf', '.txt', '.md']:
+                            vector_service = get_vector_service()
+                            if vector_service.available:
+                                vector_service.delete_document(user_id, existing_file.name)
+                        existing_file.unlink()
+                    except Exception as clean_err:
+                        print(f"Error cleaning up {existing_file.name}: {clean_err}")
+
             # Instantly point the active user DB to the uploaded SQLite file
             file_db_url = f"sqlite:///{dest_path.resolve()}"
             auth_controller.user_model.update_db_url(user_id, file_db_url)
@@ -345,8 +359,12 @@ async def create_upload_files(
             try:
                 db_url = auth_controller.user_model.get_db_url(user_id)
                 # Create a user-specific isolated SQLite DB if no db_url is currently set
-                if not db_url or 'datatalk_demo.db' in db_url:
+                if not db_url:
                     db_url = f"sqlite:///{uploads_dir.resolve()}/datatalk_user.db"
+                    # Ensure the empty SQLite file is created
+                    engine = create_engine(db_url)
+                    with engine.connect() as conn:
+                        pass
                     auth_controller.user_model.update_db_url(user_id, db_url)
                 
                 # Sanitize the filename to ensure it conforms to SQLite table name parameters
@@ -450,9 +468,13 @@ async def delete_uploaded_file(
         # Only invoke deletion from the vector store if it was a vectorized text document
         if file_path.suffix.lower() in ['.pdf', '.txt', '.md']:
             vector_service = get_vector_service()
-            vector_result = vector_service.delete_document(user_id, filename)
-            vectors_deleted = vector_result.get("success", False)
-            deleted_count = vector_result.get("deleted_count", 0)
+            if vector_service.available:
+                try:
+                    vector_result = vector_service.delete_document(user_id, filename)
+                    vectors_deleted = vector_result.get("success", False)
+                    deleted_count = vector_result.get("deleted_count", 0)
+                except Exception as pc_err:
+                    print(f"⚠️ Failed to delete vectors from Pinecone: {pc_err}")
         
         return {
             "message": f"File '{filename}' deleted successfully",

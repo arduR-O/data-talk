@@ -26,6 +26,11 @@ export default function SchemaViewer({ isOpen, onClose, token }: SchemaViewerPro
   const [error, setError] = useState('');
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [expandedTable, setExpandedTable] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(50);
+
+  useEffect(() => {
+    setVisibleCount(50);
+  }, [expandedTable]);
 
   useEffect(() => {
     if (isOpen) {
@@ -182,37 +187,50 @@ export default function SchemaViewer({ isOpen, onClose, token }: SchemaViewerPro
                         </div>
                       </div>
                       
-                      {table.sample_rows && table.sample_rows.length > 0 && (
-                        <div>
-                          <h3 className="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
-                            <span className="w-1 h-4 bg-purple-500 rounded-full"></span>
-                            Data Snapshot (Sample)
-                          </h3>
-                          <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden h-[400px] flex flex-col">
-                            {/* Header */}
-                            <div className="flex bg-black/20 border-b border-white/5 px-4 py-3">
-                              {table.columns.map(col => (
-                                <div key={col.name} className="flex-1 font-medium text-xs text-slate-400 uppercase truncate pr-4">
-                                  {col.name}
-                                </div>
-                              ))}
-                            </div>
-                            {/* Body */}
-                            <div className="flex-1 overflow-y-auto scrollbar-hide">
-                              {table.sample_rows.map((row: any, rowIdx: number) => (
-                                <div key={rowIdx} className="flex items-center px-4 py-2 hover:bg-white/5 border-b border-white/[0.03] transition-colors">
-                                  {table.columns.map((col: Column) => (
-                                    <div key={col.name} className="flex-1 font-mono text-xs text-slate-300 truncate pr-4">
-                                      {row[col.name] !== null && row[col.name] !== undefined ? String(row[col.name]) : <span className="text-slate-600 italic">null</span>}
-                                    </div>
+                      {table.sample_rows && table.sample_rows.length > 0 && (() => {
+                        const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+                          const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+                          if (scrollHeight - scrollTop - clientHeight < 40) {
+                            setVisibleCount(prev => Math.min(prev + 50, table.sample_rows.length));
+                          }
+                        };
+                        const displayedRows = table.sample_rows.slice(0, visibleCount);
+                        return (
+                          <div>
+                            <h3 className="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
+                              <span className="w-1 h-4 bg-purple-500 rounded-full"></span>
+                              Data Snapshot ({displayedRows.length} of {table.sample_rows.length} rows)
+                            </h3>
+                            <div 
+                              className="bg-white/5 border border-white/10 rounded-xl overflow-auto h-[400px]"
+                              onScroll={handleScroll}
+                            >
+                              <table className="w-full text-sm text-left border-collapse">
+                                <thead className="text-xs text-slate-400 uppercase bg-black/20 border-b border-white/5 sticky top-0 z-10 backdrop-blur-md">
+                                  <tr>
+                                    {table.columns.map(col => (
+                                      <th key={col.name} className="px-4 py-3 font-medium whitespace-nowrap">
+                                        {col.name}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5 font-mono text-xs">
+                                  {displayedRows.map((row: any, rowIdx: number) => (
+                                    <tr key={rowIdx} className="hover:bg-white/5 transition-colors">
+                                      {table.columns.map((col: Column) => (
+                                        <td key={col.name} className="px-4 py-2 text-slate-300 whitespace-nowrap max-w-[250px] truncate pr-8">
+                                          {row[col.name] !== null && row[col.name] !== undefined ? String(row[col.name]) : <span className="text-slate-600 italic">null</span>}
+                                        </td>
+                                      ))}
+                                    </tr>
                                   ))}
-                                </div>
-                              ))}
+                                </tbody>
+                              </table>
                             </div>
                           </div>
-                        </div>
-                      )}
-                      
+                        );
+                      })()}  
                     </div>
                   );
                 })}

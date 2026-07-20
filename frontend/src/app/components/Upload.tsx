@@ -326,7 +326,7 @@ export default function UploadCard() {
   }
 
   return (
-    <div className="bg-slate-900/20 border border-white/10 rounded-2xl shadow-2xl w-full h-full p-6 space-y-6 backdrop-blur-xl overflow-y-auto relative flex flex-col justify-between">
+    <div className="w-full h-full pr-4 py-2 space-y-6 overflow-y-auto relative flex flex-col justify-between">
       
       <div className="space-y-6">
         {/* Title */}
@@ -400,9 +400,6 @@ export default function UploadCard() {
                   <div className={`w-2.5 h-2.5 rounded-full ${
                     dbUrl && !dbUrl.includes('datatalk_demo.db') ? 'bg-green-500' : 'bg-blue-500'
                   } shadow-sm`}></div>
-                  <div className={`absolute inset-0 rounded-full ${
-                    dbUrl && !dbUrl.includes('datatalk_demo.db') ? 'bg-green-500' : 'bg-blue-500'
-                  } animate-ping opacity-60`}></div>
                 </div>
                 <div className="flex-1 flex items-center justify-between gap-2 min-w-0">
                   <div className="min-w-0">
@@ -501,8 +498,8 @@ export default function UploadCard() {
           </>
         ) : (
           <>
-            <div className="w-2 h-2 bg-amber-500 rounded-full shadow-sm shadow-amber-500/50 animate-pulse"></div>
-            <span className="text-amber-400/90">Self-contained demo session active</span>
+            <div className="w-2 h-2 bg-blue-500 rounded-full shadow-sm shadow-blue-500/50"></div>
+            <span className="text-blue-400/90">Seeded Demo Database Active</span>
           </>
         )}
       </div>

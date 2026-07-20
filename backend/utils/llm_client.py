@@ -17,7 +17,7 @@ def get_llm():
         
     try:
         return ChatGroq(
-            model=os.getenv("LLM_MODEL", "qwen/qwen3-32b"),
+            model=os.getenv("LLM_MODEL", "qwen/qwen3.6-27b"),
             temperature=0,
             api_key=api_key,
         )
