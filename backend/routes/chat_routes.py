@@ -304,14 +304,23 @@ async def create_upload_files(
     uploads_dir = base_dir / "context" / user_id
     uploads_dir.mkdir(parents=True, exist_ok=True)
     
-    # Check if the uploads folder only contains demo files.
-    # If the user has only demo files, we should clean them up to give them a fresh slate.
-    existing_files = [f for f in uploads_dir.iterdir() if f.is_file()]
-    is_only_demo = all(
-        f.name.startswith("demo_") or f.name == "datatalk_user.db" 
-        for f in existing_files
+    # Track the filenames being uploaded in the current request to avoid deleting them
+    uploading_filenames = {Path(u.filename).name for u in files}
+    saved = []
+
+    # Check if the uploads folder contains the pre-seeded demo files (both datatalk_user.db and demo_target_budgets.txt)
+    # and neither is part of the current upload request. If so, this is the first user upload, and we should clear them.
+    existing_names = {f.name for f in uploads_dir.iterdir() if f.is_file()}
+    has_demo_db = "datatalk_user.db" in existing_names
+    has_demo_doc = "demo_target_budgets.txt" in existing_names
+    
+    is_preconfigured_demo = (
+        has_demo_db and has_demo_doc 
+        and "datatalk_user.db" not in uploading_filenames
+        and "demo_target_budgets.txt" not in uploading_filenames
     )
-    if existing_files and is_only_demo:
+    
+    if is_preconfigured_demo:
         print(f"🧹 First user upload detected. Cleaning up pre-seeded demo files for user {user_id}.")
         # Clear database cache/connections first to release locks
         from nlp import create_database_graph
@@ -319,22 +328,19 @@ async def create_upload_files(
         import gc
         gc.collect()
         
-        for f in existing_files:
+        for name in ["datatalk_user.db", "demo_target_budgets.txt"]:
+            f = uploads_dir / name
             try:
-                if f.suffix.lower() in ['.pdf', '.txt', '.md']:
+                if name == "demo_target_budgets.txt":
                     vector_service = get_vector_service()
                     if vector_service.available:
-                        vector_service.delete_document(user_id, f.name)
+                        vector_service.delete_document(user_id, name)
                 f.unlink(missing_ok=True)
             except Exception as e:
-                print(f"Error cleaning up demo file {f.name}: {e}")
+                print(f"Error cleaning up demo file {name}: {e}")
         
         # Reset the user's DB URL to empty so they start fresh
         auth_controller.user_model.update_db_url(user_id, "")
-        
-    # Track the filenames being uploaded in the current request to avoid deleting them
-    uploading_filenames = {Path(u.filename).name for u in files}
-    saved = []
     
     for upload in files:
         filename = Path(upload.filename).name
@@ -431,6 +437,12 @@ async def create_upload_files(
                 filename
             )
     
+    # Clear the database graph cache so any newly uploaded tables or schema changes are loaded immediately
+    from nlp import create_database_graph
+    create_database_graph.cache_clear()
+    import gc
+    gc.collect()
+
     return {
         "message": f"Successfully uploaded {len(saved)} file(s). Data mapped.",
         "saved": saved
