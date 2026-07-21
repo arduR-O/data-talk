@@ -16,6 +16,7 @@ os.environ['DATABASE_NAME'] = 'test_datatalk'
 os.environ['GROQ_API_KEY'] = 'test-groq-key'
 os.environ['PINECONE_API_KEY'] = 'test-pinecone-key'
 os.environ['DB_URL'] = 'postgresql://test:test@localhost:5432/testdb'
+os.environ['ALLOW_MOCK_OAUTH'] = 'true'
 
 
 @pytest.fixture
