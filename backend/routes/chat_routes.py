@@ -304,6 +304,34 @@ async def create_upload_files(
     uploads_dir = base_dir / "context" / user_id
     uploads_dir.mkdir(parents=True, exist_ok=True)
     
+    # Check if the uploads folder only contains demo files.
+    # If the user has only demo files, we should clean them up to give them a fresh slate.
+    existing_files = [f for f in uploads_dir.iterdir() if f.is_file()]
+    is_only_demo = all(
+        f.name.startswith("demo_") or f.name == "datatalk_user.db" 
+        for f in existing_files
+    )
+    if existing_files and is_only_demo:
+        print(f"🧹 First user upload detected. Cleaning up pre-seeded demo files for user {user_id}.")
+        # Clear database cache/connections first to release locks
+        from nlp import create_database_graph
+        create_database_graph.cache_clear()
+        import gc
+        gc.collect()
+        
+        for f in existing_files:
+            try:
+                if f.suffix.lower() in ['.pdf', '.txt', '.md']:
+                    vector_service = get_vector_service()
+                    if vector_service.available:
+                        vector_service.delete_document(user_id, f.name)
+                f.unlink(missing_ok=True)
+            except Exception as e:
+                print(f"Error cleaning up demo file {f.name}: {e}")
+        
+        # Reset the user's DB URL to empty so they start fresh
+        auth_controller.user_model.update_db_url(user_id, "")
+        
     # Track the filenames being uploaded in the current request to avoid deleting them
     uploading_filenames = {Path(u.filename).name for u in files}
     saved = []
@@ -335,17 +363,17 @@ async def create_upload_files(
         
         # Branch actions based on file extension
         if ext in ['.db', '.sqlite']:
-            # Clean up all existing files in the uploads folder to start fresh
+            # Clean up only previous database files in the uploads folder to start fresh with the new database
             for existing_file in list(uploads_dir.iterdir()):
-                if existing_file.is_file() and existing_file.name not in uploading_filenames:
+                if existing_file.is_file() and existing_file.suffix.lower() in ['.db', '.sqlite'] and existing_file.name not in uploading_filenames:
                     try:
-                        if existing_file.suffix.lower() in ['.pdf', '.txt', '.md']:
-                            vector_service = get_vector_service()
-                            if vector_service.available:
-                                vector_service.delete_document(user_id, existing_file.name)
+                        from nlp import create_database_graph
+                        create_database_graph.cache_clear()
+                        import gc
+                        gc.collect()
                         existing_file.unlink()
                     except Exception as clean_err:
-                        print(f"Error cleaning up {existing_file.name}: {clean_err}")
+                        print(f"Error cleaning up old database {existing_file.name}: {clean_err}")
 
             # Instantly point the active user DB to the uploaded SQLite file
             file_db_url = f"sqlite:///{dest_path.resolve()}"
