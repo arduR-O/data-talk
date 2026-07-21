@@ -254,7 +254,7 @@ async def chat_stream_endpoint(
             chat_controller.chat_history_model.add_message(user_id, 'user', chat_request.question, session_id=chat_request.session_id)
             
             # Artificial thinking delay
-            await asyncio.sleep(5)
+            await asyncio.sleep(2)
             
             # Stream response in chunks
             answer = mock_data["answer"]
