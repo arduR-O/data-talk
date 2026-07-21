@@ -538,6 +538,74 @@ async def delete_uploaded_file(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/uploadfiles/{filename}")
+async def get_uploaded_file_content(
+    filename: str,
+    authorization: Optional[str] = Header(None),
+    token: Optional[str] = None
+):
+    # Support standard Authorization header or token query param (for opening PDF in new tab)
+    raw_token = token
+    if authorization:
+        raw_token = authorization.split(" ")[1] if len(authorization.split(" ")) > 1 else authorization
+        
+    if not raw_token:
+        raise HTTPException(status_code=401, detail="Authentication required")
+        
+    user_id = get_user_id_from_token(raw_token)
+    
+    base_dir = Path(__file__).resolve().parent.parent
+    uploads_dir = base_dir / "context" / user_id
+    file_path = uploads_dir / Path(filename).name
+    
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+        
+    if not file_path.is_relative_to(uploads_dir):
+        raise HTTPException(status_code=400, detail="Invalid path")
+        
+    ext = file_path.suffix.lower()
+    
+    if ext == '.csv':
+        try:
+            df = pd.read_csv(file_path)
+            # Replace NaN with empty string to avoid JSON validation issues
+            df = df.fillna("")
+            preview_df = df.head(100)
+            return {
+                "type": "csv",
+                "filename": filename,
+                "columns": list(preview_df.columns),
+                "rows": preview_df.to_dict(orient="records"),
+                "total_rows": len(df)
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to read CSV: {str(e)}")
+            
+    elif ext in ['.txt', '.md']:
+        try:
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+            return {
+                "type": "text",
+                "filename": filename,
+                "content": content
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to read text file: {str(e)}")
+            
+    elif ext == '.pdf':
+        from fastapi.responses import FileResponse
+        return FileResponse(
+            path=file_path,
+            media_type="application/pdf",
+            filename=filename
+        )
+        
+    else:
+        raise HTTPException(status_code=400, detail=f"File preview not supported for {ext} files")
+
+
 @router.get("/vectors/status")
 async def get_vector_status(authorization: str = Header(...)):
     user_id = get_user_id_from_token(authorization)

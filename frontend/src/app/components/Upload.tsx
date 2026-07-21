@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Database, CloudUpload, FileText, CheckCircle, AlertCircle, X, Loader2, DatabaseBackup, ChevronDown, Eye } from "lucide-react";
 import { API_BASE } from '../lib/api';
 import SchemaViewer from './SchemaViewer';
+import FileViewer from './FileViewer';
 
 interface UploadedFile {
   id: string;
@@ -28,6 +29,7 @@ export default function UploadCard() {
   const [loading, setLoading] = useState(true);
   const [filesDropdownOpen, setFilesDropdownOpen] = useState(true);
   const [isSchemaViewerOpen, setIsSchemaViewerOpen] = useState(false);
+  const [viewingFile, setViewingFile] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -300,6 +302,20 @@ export default function UploadCard() {
     }
   };
 
+  const handleViewFile = (filename: string) => {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    if (ext === 'pdf') {
+      const token = getAuthToken();
+      if (token) {
+        window.open(`${API_BASE}/api/uploadfiles/${encodeURIComponent(filename)}?token=${token}`, '_blank');
+      }
+    } else if (ext === 'csv' || ext === 'txt' || ext === 'md') {
+      setViewingFile(filename);
+    } else {
+      alert('Preview not supported for this file type.');
+    }
+  };
+
   const getFileStatusIcon = (status: UploadedFile['status']) => {
     switch (status) {
       case 'uploading':
@@ -468,8 +484,11 @@ export default function UploadCard() {
                   <div key={file.id} className={`flex items-center justify-between p-2.5 bg-white/[0.01] rounded-xl border shadow-sm ${getFileStatusColor(file.status)}`}>
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       {getFileStatusIcon(file.status)}
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold truncate">
+                      <div 
+                        className={`min-w-0 flex-1 ${file.status === 'uploaded' ? 'cursor-pointer group/item' : ''}`}
+                        onClick={() => file.status === 'uploaded' && handleViewFile(file.name)}
+                      >
+                        <p className={`text-xs font-semibold truncate ${file.status === 'uploaded' ? 'group-hover/item:text-blue-400 transition-colors' : ''}`}>
                           {file.name}
                         </p>
                         <p className="text-[9px] opacity-70">
@@ -477,13 +496,25 @@ export default function UploadCard() {
                         </p>
                       </div>
                     </div>
-                    <button 
-                      onClick={() => removeFile(file.name)}
-                      className="p-1 rounded-lg bg-slate-950/20 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-white/5 transition-all disabled:opacity-40"
-                      disabled={file.status === 'uploading'}
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {file.status === 'uploaded' && (
+                        <button
+                          onClick={() => handleViewFile(file.name)}
+                          className="p-1 rounded-lg bg-slate-950/20 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 border border-white/5 transition-all"
+                          title="Preview File"
+                        >
+                          <Eye className="w-3 h-3" />
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => removeFile(file.name)}
+                        className="p-1 rounded-lg bg-slate-950/20 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-white/5 transition-all disabled:opacity-40"
+                        disabled={file.status === 'uploading'}
+                        title="Delete File"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -515,6 +546,13 @@ export default function UploadCard() {
       <SchemaViewer 
         isOpen={isSchemaViewerOpen} 
         onClose={() => setIsSchemaViewerOpen(false)} 
+        token={getAuthToken() || ''}
+      />
+
+      <FileViewer
+        isOpen={viewingFile !== null}
+        onClose={() => setViewingFile(null)}
+        filename={viewingFile || ''}
         token={getAuthToken() || ''}
       />
     </div>
