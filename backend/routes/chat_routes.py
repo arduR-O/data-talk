@@ -545,14 +545,14 @@ async def get_uploaded_file_content(
     token: Optional[str] = None
 ):
     # Support standard Authorization header or token query param (for opening PDF in new tab)
-    raw_token = token
-    if authorization:
-        raw_token = authorization.split(" ")[1] if len(authorization.split(" ")) > 1 else authorization
+    auth_header = authorization
+    if not auth_header and token:
+        auth_header = f"Bearer {token}"
         
-    if not raw_token:
+    if not auth_header:
         raise HTTPException(status_code=401, detail="Authentication required")
         
-    user_id = get_user_id_from_token(raw_token)
+    user_id = get_user_id_from_token(auth_header)
     
     base_dir = Path(__file__).resolve().parent.parent
     uploads_dir = base_dir / "context" / user_id
