@@ -399,25 +399,25 @@ export default function UploadCard() {
             
             {/* Active Database Status Banner */}
             <div className={`p-3.5 rounded-xl border text-xs shadow-sm transition-all duration-300 ${
-              dbUrl && !dbUrl.includes('datatalk_demo.db')
+              dbUrl && (!dbUrl.includes('datatalk_demo.db') || dbUrl.includes('/context/'))
                 ? 'bg-emerald-950/15 border-emerald-500/20 text-emerald-300'
                 : 'bg-blue-950/15 border-blue-500/20 text-blue-300'
             }`}>
               <div className="flex items-start gap-2.5">
                 <div className="relative mt-0.5">
                   <div className={`w-2.5 h-2.5 rounded-full ${
-                    dbUrl && !dbUrl.includes('datatalk_demo.db') ? 'bg-green-500' : 'bg-blue-500'
+                    dbUrl && (!dbUrl.includes('datatalk_demo.db') || dbUrl.includes('/context/')) ? 'bg-green-500' : 'bg-blue-500'
                   } shadow-sm`}></div>
                 </div>
                 <div className="flex-1 flex items-center justify-between gap-2 min-w-0">
                   <div className="min-w-0">
                     <p className="font-bold truncate">
-                      {dbUrl && !dbUrl.includes('datatalk_demo.db') 
+                      {dbUrl && (!dbUrl.includes('datatalk_demo.db') || dbUrl.includes('/context/')) 
                         ? 'Connected to Active Database' 
                         : 'Active Database: Fictional Company (Demo)'}
                     </p>
                     <p className="text-[10px] mt-1 opacity-80 leading-relaxed font-mono truncate">
-                      {dbUrl && !dbUrl.includes('datatalk_demo.db')
+                      {dbUrl && (!dbUrl.includes('datatalk_demo.db') || dbUrl.includes('/context/'))
                         ? dbUrl.split('@')[1] || dbUrl
                         : 'Tables: employee, department, project, employee_project'}
                     </p>
