@@ -71,9 +71,18 @@ const TableRenderer = ({ tableLines }: { tableLines: string[] }) => {
 const ChartRenderer = ({ jsonStr }: { jsonStr: string }) => {
   try {
     const chartConfig = JSON.parse(jsonStr);
-    const { type, title, data } = chartConfig;
+    const type = (chartConfig.type || chartConfig.TYPE || 'bar').toLowerCase();
+    const title = chartConfig.title || chartConfig.TITLE || '';
+    const rawData = chartConfig.data || chartConfig.DATA || [];
 
-    if (!data || !Array.isArray(data)) return null;
+    if (!rawData || !Array.isArray(rawData)) return null;
+
+    // Normalize data keys to lowercase name and value
+    const data = rawData.map((item: any) => {
+      const name = item.name !== undefined ? item.name : (item.NAME !== undefined ? item.NAME : '');
+      const value = item.value !== undefined ? item.value : (item.VALUE !== undefined ? item.VALUE : 0);
+      return { name, value };
+    });
 
     const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#ef4444'];
 
@@ -244,7 +253,7 @@ const MarkdownText = ({ content }: { content: string }) => {
       continue;
     }
 
-    if (line.startsWith('```chart')) {
+    if (line.toLowerCase().startsWith('```chart')) {
       const chartJsonLines: string[] = [];
       let chartIdx = idx + 1;
       let hasClosing = false;
