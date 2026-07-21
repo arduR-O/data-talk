@@ -449,18 +449,30 @@ async def delete_uploaded_file(
     file_path = uploads_dir / Path(filename).name
     
     if not file_path.exists():
-        raise HTTPException(status_code=404, detail="File not found")
+        # Make deletion idempotent to handle race conditions / double clicks gracefully
+        return {
+            "message": f"File '{filename}' deleted successfully",
+            "file_deleted": True,
+            "vectors_deleted": False,
+            "vectors_count": 0
+        }
     
     if not file_path.is_relative_to(uploads_dir):
         raise HTTPException(status_code=400, detail="Invalid file path")
     
     try:
-        file_path.unlink()
-        
-        # Clear the database URL mapping if the deleted file was the active connection source
+        # Clear database mapping and clear graph cache first to release active SQLite file locks
         db_url = auth_controller.user_model.get_db_url(user_id)
         if db_url and file_path.name in db_url:
             auth_controller.user_model.update_db_url(user_id, "")
+
+        from nlp import create_database_graph
+        create_database_graph.cache_clear()
+        
+        import gc
+        gc.collect()
+
+        file_path.unlink()
             
         vectors_deleted = False
         deleted_count = 0

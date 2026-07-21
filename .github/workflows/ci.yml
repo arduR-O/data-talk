@@ -18,7 +18,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: '3.12'
         cache: 'pip'
 
     - name: Install Dependencies
@@ -34,7 +34,7 @@ jobs:
         GOOGLE_CLIENT_ID: "mock_key"
         GOOGLE_CLIENT_SECRET: "mock_key"
         JWT_SECRET: "mock_key"
-      run: pytest
+      run: python -m pytest
 
   frontend-build:
     name: Frontend CI (Node)
@@ -47,7 +47,7 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
+        node-version: '22'
         cache: 'npm'
         cache-dependency-path: './frontend/package-lock.json'
 

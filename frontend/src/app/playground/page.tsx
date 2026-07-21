@@ -133,7 +133,7 @@ export default function Home() {
 
       {/* Main Split Screen Area with resizable panels */}
       <div className="flex-1 w-full max-w-[1600px] p-6 min-h-0 relative z-10 overflow-hidden">
-        <PanelGroup direction="horizontal" orientation="horizontal" id="playground-group" className="h-full">
+        <PanelGroup orientation="horizontal" id="playground-group" className="h-full">
           <Panel id="workspace-panel" defaultSize="35%" minSize="20%" maxSize="60%">
             <div className="h-full overflow-y-auto scrollbar-hide pr-1">
               <UploadCard />
