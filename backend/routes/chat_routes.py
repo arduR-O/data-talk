@@ -136,128 +136,105 @@ DEMO_MOCK_RESPONSES = {
 }
 
 
-def get_mock_response(question: str):
+def get_mock_response(user_id: str, session_id: str):
     import os
     if os.getenv("DEMO_MOCK_MODE", "true").lower() != "true":
         return None
         
-    q = question.lower()
-    if "department" in q and "budget" in q and ("list" in q or "show" in q or "all" in q):
-        return DEMO_MOCK_RESPONSES["list all departments and their budgets"]
-    elif "salary" in q and "department" in q:
-        return DEMO_MOCK_RESPONSES["show employee salaries and their departments"]
-    elif "plot" in q and ("salary" in q or "salaries" in q):
-        return DEMO_MOCK_RESPONSES["plot department salaries compared to their budgets"]
-    elif "target budget" in q or "budgets for next year" in q or "target budgets" in q:
-        return DEMO_MOCK_RESPONSES["what are the company target budgets for next year from the document"]
-    elif "extra benefits" in q or "benefits listed in" in q or "csv benefits" in q or "extra benefit" in q:
-        return DEMO_MOCK_RESPONSES["are there any extra benefits listed in the csv"]
-    return None
-
-
-DEMO_MOCK_RESPONSES = {
-    "list all departments and their budgets": {
-        "routing": "sql",
-        "answer": (
-            "Here are the departments and their allocated budgets from the database:\n\n"
-            "* **Engineering:** $500,000.00\n"
-            "* **Product:** $250,000.00\n"
-            "* **Marketing:** $150,000.00\n"
-            "* **Sales:** $300,000.00\n"
-            "* **HR:** $100,000.00"
-        )
-    },
-    "show employee salaries and their departments": {
-        "routing": "sql",
-        "answer": (
-            "Here is the list of employees, their salaries, and their departments:\n\n"
-            "* **Alice Smith** (Engineering) — $95,000.00\n"
-            "* **Bob Jones** (Engineering) — $105,000.00\n"
-            "* **Charlie Brown** (Product) — $85,000.00\n"
-            "* **Diana Prince** (Marketing) — $75,000.00\n"
-            "* **Ethan Hunt** (Engineering) — $110,000.00\n"
-            "* **Fiona Gallagher** (Sales) — $90,000.00\n"
-            "* **George Costanza** (HR) — $60,000.00\n"
-            "* **Hannah Baker** (Engineering) — $98,000.00\n"
-            "* **Ian Malcolm** (Marketing) — $78,000.00\n"
-            "* **Jane Doe** (Sales) — $115,000.00"
-        )
-    },
-    "plot department salaries compared to their budgets": {
-        "routing": "sql",
-        "answer": (
-            "Here is the comparison between total employee salaries and allocated budgets for each department:\n\n"
-            "```CHART\n"
-            "{\n"
-            "  \"TYPE\": \"BAR\",\n"
-            "  \"TITLE\": \"DEPARTMENT SALARIES VS BUDGETS\",\n"
-            "  \"DATA\": [\n"
-            "    {\"NAME\": \"Engineering Salaries\", \"VALUE\": 408000.0},\n"
-            "    {\"NAME\": \"Engineering Budget\", \"VALUE\": 500000.0},\n"
-            "    {\"NAME\": \"Product Salaries\", \"VALUE\": 85000.0},\n"
-            "    {\"NAME\": \"Product Budget\", \"VALUE\": 250000.0},\n"
-            "    {\"NAME\": \"Marketing Salaries\", \"VALUE\": 153000.0},\n"
-            "    {\"NAME\": \"Marketing Budget\", \"VALUE\": 150000.0},\n"
-            "    {\"NAME\": \"Sales Salaries\", \"VALUE\": 205000.0},\n"
-            "    {\"NAME\": \"Sales Budget\", \"VALUE\": 300000.0},\n"
-            "    {\"NAME\": \"HR Salaries\", \"VALUE\": 60000.0},\n"
-            "    {\"NAME\": \"HR Budget\", \"VALUE\": 100000.0}\n"
-            "  ]\n"
-            "}\n"
-            "```"
-        )
-    },
-    "what are the company target budgets for next year from the document": {
-        "routing": "rag",
-        "answer": (
-            "Based on the `demo_target_budgets.txt` document, the target budgets for next year are:\n\n"
-            "* **Engineering:** Target: $520,000 (focused on infrastructure scaling)\n"
-            "* **Product:** Target: $280,000 (mobile app launch readiness)\n"
-            "* **Marketing:** Target: $165,000 (growth marketing and SEO campaigns)\n"
-            "* **Sales:** Target: $330,000 (expanding sales team by 15%)\n"
-            "* **HR:** Target: $110,000 (employee wellness and retention programs)"
-        )
-    },
-    "are there any extra benefits listed in the csv": {
-        "routing": "rag",
-        "answer": (
-            "Yes! Based on the uploaded `demo_extra_benefits.csv` file, the following extra benefits are listed:\n\n"
-            "* **Health Insurance Premium:** Fully covered (100%) for all full-time employees.\n"
-            "* **Gym Membership Reimbursement:** Up to $50/month per employee.\n"
-            "* **Remote Work Stipend:** $150 one-time home office setup allowance.\n"
-            "* **Learning & Development budget:** $1,500/year per employee for courses or certifications."
-        )
-    }
-}
-
-
-def get_mock_response(question: str):
-    import os
-    if os.getenv("DEMO_MOCK_MODE", "true").lower() != "true":
-        return None
-        
-    q = question.lower()
-    if "department" in q and "budget" in q and ("list" in q or "show" in q or "all" in q):
-        return DEMO_MOCK_RESPONSES["list all departments and their budgets"]
-    elif "salary" in q and "department" in q:
-        return DEMO_MOCK_RESPONSES["show employee salaries and their departments"]
-    elif "plot" in q and ("salary" in q or "salaries" in q):
-        return DEMO_MOCK_RESPONSES["plot department salaries compared to their budgets"]
-    elif "target budget" in q or "budgets for next year" in q or "target budgets" in q:
-        return DEMO_MOCK_RESPONSES["what are the company target budgets for next year from the document"]
-    elif "extra benefits" in q or "benefits listed in" in q or "csv benefits" in q or "extra benefit" in q:
-        return DEMO_MOCK_RESPONSES["are there any extra benefits listed in the csv"]
+    messages = chat_controller.chat_history_model.get_user_history(user_id, session_id=session_id)
+    # Filter only messages for the current session to get the sequence index
+    # Since each turn adds 2 messages (1 user, 1 assistant), the sequence index is len(messages) // 2
+    seq_idx = len(messages) // 2
+    
+    # Pre-computed sequence responses
+    responses = [
+        # Sequence 1: SQL Budgets list
+        {
+            "routing": "sql",
+            "answer": (
+                "Here are the departments and their allocated budgets from the database:\n\n"
+                "- **Engineering:** $500,000.00\n"
+                "- **Product:** $250,000.00\n"
+                "- **Marketing:** $150,000.00\n"
+                "- **Sales:** $300,000.00\n"
+                "- **HR:** $100,000.00"
+            )
+        },
+        # Sequence 2: SQL Joining Salaries list
+        {
+            "routing": "sql",
+            "answer": (
+                "Here is the list of employees, their salaries, and their departments:\n\n"
+                "- **Alice Smith** (Engineering) — $95,000.00\n"
+                "- **Bob Jones** (Engineering) — $105,000.00\n"
+                "- **Charlie Brown** (Product) — $85,000.00\n"
+                "- **Diana Prince** (Marketing) — $75,000.00\n"
+                "- **Ethan Hunt** (Engineering) — $110,000.00\n"
+                "- **Fiona Gallagher** (Sales) — $90,000.00\n"
+                "- **George Costanza** (HR) — $60,000.00\n"
+                "- **Hannah Baker** (Engineering) — $98,000.00\n"
+                "- **Ian Malcolm** (Marketing) — $78,000.00\n"
+                "- **Jane Doe** (Sales) — $115,000.00"
+            )
+        },
+        # Sequence 3: Recharts stacked bar chart visualization
+        {
+            "routing": "sql",
+            "answer": (
+                "Here is the comparison between total employee salaries and allocated budgets for each department:\n\n"
+                "```CHART\n"
+                "{\n"
+                "  \"TYPE\": \"BAR\",\n"
+                "  \"TITLE\": \"DEPARTMENT SALARIES VS BUDGETS\",\n"
+                "  \"DATA\": [\n"
+                "    {\"NAME\": \"Engineering Salaries\", \"VALUE\": 408000.0},\n"
+                "    {\"NAME\": \"Engineering Budget\", \"VALUE\": 500000.0},\n"
+                "    {\"NAME\": \"Product Salaries\", \"VALUE\": 85000.0},\n"
+                "    {\"NAME\": \"Product Budget\", \"VALUE\": 250000.0},\n"
+                "    {\"NAME\": \"Marketing Salaries\", \"VALUE\": 153000.0},\n"
+                "    {\"NAME\": \"Marketing Budget\", \"VALUE\": 150000.0},\n"
+                "    {\"NAME\": \"Sales Salaries\", \"VALUE\": 205000.0},\n"
+                "    {\"NAME\": \"Sales Budget\", \"VALUE\": 300000.0},\n"
+                "    {\"NAME\": \"HR Salaries\", \"VALUE\": 60000.0},\n"
+                "    {\"NAME\": \"HR Budget\", \"VALUE\": 100000.0}\n"
+                "  ]\n"
+                "}\n"
+                "```"
+            )
+        },
+        # Sequence 4: RAG Doc Search Budgets
+        {
+            "routing": "rag",
+            "answer": (
+                "Based on the `demo_target_budgets.txt` document, the target budgets for next year are:\n\n"
+                "- **Engineering:** Target: $520,000 (focused on infrastructure scaling)\n"
+                "- **Product:** Target: $280,000 (mobile app launch readiness)\n"
+                "- **Marketing:** Target: $165,000 (growth marketing and SEO campaigns)\n"
+                "- **Sales:** Target: $330,000 (expanding sales team by 15%)\n"
+                "- **HR:** Target: $110,000 (employee wellness and retention programs)"
+            )
+        },
+        # Sequence 5: CSV Parsing extra benefits
+        {
+            "routing": "rag",
+            "answer": (
+                "Yes! Based on the uploaded `demo_extra_benefits.csv` file, the following extra benefits are listed:\n\n"
+                "- **Health Insurance Premium:** Fully covered (100%) for all full-time employees.\n"
+                "- **Gym Membership Reimbursement:** Up to $50/month per employee.\n"
+                "- **Remote Work Stipend:** $150 one-time home office setup allowance.\n"
+                "- **Learning & Development budget:** $1,500/year per employee for courses or certifications."
+            )
+        }
+    ]
+    
+    if seq_idx < len(responses):
+        return responses[seq_idx]
         
     return {
         "routing": "general",
         "answer": (
-            "I am currently operating in **Demo Mock Mode** to conserve API tokens and prevent rate limit errors during presentations.\n\n"
-            "Please ask one of these demo questions to see agentic actions:\n"
-            "1. *List all departments and their budgets* (SQL query)\n"
-            "2. *Show employee salaries and their departments* (SQL query)\n"
-            "3. *Plot department salaries compared to their budgets* (SQL query & Chart rendering)\n"
-            "4. *What are the company target budgets for next year?* (Document RAG search)\n"
-            "5. *Are there any extra benefits listed in the CSV?* (CSV parsing & analysis)"
+            "You have completed the sequence-based live demo simulation!\n\n"
+            "To restart the sequence, please clear your active chat session in the sidebar, or ask standard questions if you disable `DEMO_MOCK_MODE` in the backend configuration."
         )
     }
 
@@ -270,7 +247,7 @@ async def chat_stream_endpoint(
     user_id = get_user_id_from_token(authorization)
     
     # Intercept for pre-seeded simulation responses
-    mock_data = get_mock_response(chat_request.question)
+    mock_data = get_mock_response(user_id, chat_request.session_id)
     if mock_data:
         async def mock_event_generator():
             # Save user query to history
