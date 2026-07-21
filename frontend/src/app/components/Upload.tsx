@@ -91,6 +91,11 @@ export default function UploadCard() {
           }]);
         }
       }
+      
+      // Dispatch database-updated event to reload chat welcome state in sibling components
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('database-updated'));
+      }
     } catch (error) {
       console.error('Failed to load persisted data:', error);
     } finally {
@@ -234,6 +239,7 @@ export default function UploadCard() {
         };
         setConnections([newConnection]);
         setConnectionError('');
+        loadPersistedData();
       } else {
         setConnectionError(data.detail || 'Failed to connect database');
       }
@@ -261,6 +267,7 @@ export default function UploadCard() {
       
       setConnections([]);
       setDbUrl('');
+      loadPersistedData();
     } catch (error) {
       console.error('Failed to remove connection:', error);
     }
@@ -283,6 +290,7 @@ export default function UploadCard() {
           setDbUrl('');
           setConnections([]);
         }
+        loadPersistedData();
       } else {
         alert('Failed to delete file');
       }

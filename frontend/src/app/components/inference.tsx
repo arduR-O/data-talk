@@ -359,6 +359,15 @@ export default function Inference() {
     setIsClient(true);
     loadSessions();
     loadChatHistory();
+    
+    const handleDbUpdate = () => {
+      loadChatHistory();
+    };
+    
+    window.addEventListener('database-updated', handleDbUpdate);
+    return () => {
+      window.removeEventListener('database-updated', handleDbUpdate);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -38,6 +38,18 @@ export default function SchemaViewer({ isOpen, onClose, token }: SchemaViewerPro
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    const handleDbUpdate = () => {
+      if (isOpen) {
+        fetchSchema();
+      }
+    };
+    window.addEventListener('database-updated', handleDbUpdate);
+    return () => {
+      window.removeEventListener('database-updated', handleDbUpdate);
+    };
+  }, [isOpen]);
+
   const fetchSchema = async () => {
     setLoading(true);
     setError('');
