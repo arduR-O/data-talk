@@ -893,7 +893,7 @@ class AgenticOrchestrator:
                 'answer': answer,
                 'routing': 'general',
                 'resources': {'database': has_database, 'documents': has_documents,
-                               'is_demo_db': 'datatalk_demo.db' in db_url if db_url else False},
+                               'is_demo_db': ('datatalk_demo.db' in db_url and user_id not in db_url) if db_url else False},
                 'tools_used': [],
                 'debug_logs': debug_logger.get_logs() if debug else []
             }
@@ -915,7 +915,7 @@ class AgenticOrchestrator:
                 'answer': demo_message,
                 'routing': 'demo',
                 'resources': {'database': has_database, 'documents': has_documents,
-                               'is_demo_db': 'datatalk_demo.db' in db_url if db_url else False},
+                               'is_demo_db': ('datatalk_demo.db' in db_url and user_id not in db_url) if db_url else False},
                 'tools_used': [],
                 'debug_logs': debug_logger.get_logs() if debug else []
             }
@@ -953,7 +953,7 @@ class AgenticOrchestrator:
                     print(f"{key}: {value}")
                 print("=" * 80 + "\n")
 
-            is_demo = 'datatalk_demo.db' in db_url
+            is_demo = 'datatalk_demo.db' in db_url and user_id not in db_url
 
             return {
                 'answer': answer,
@@ -972,7 +972,7 @@ class AgenticOrchestrator:
                 'answer': f"I encountered an error: {str(e)}",
                 'routing': 'error',
                 'resources': {'database': has_database, 'documents': has_documents,
-                               'is_demo_db': 'datatalk_demo.db' in db_url if db_url else False},
+                               'is_demo_db': ('datatalk_demo.db' in db_url and user_id not in db_url) if db_url else False},
                 'tools_used': [],
                 'debug_logs': debug_logger.get_logs() if debug else []
             }

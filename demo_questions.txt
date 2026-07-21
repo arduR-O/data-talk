@@ -1,0 +1,5 @@
+1. List all departments and their budgets
+2. Show employee salaries and their departments
+3. Plot department salaries compared to their budgets
+4. What are the company target budgets for next year?
+5. Are there any extra benefits listed in the CSV?
