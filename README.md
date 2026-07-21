@@ -136,6 +136,23 @@ This spins up the FastAPI backend on `http://localhost:8000` and the Next.js fro
 
 ---
 
+## 📺 Live Demo Simulation Mode
+
+To prevent API rate limits (such as TPM exhaustion on open-source Groq endpoints) and guarantee instant responses during live demonstrations or reviews, DataTalk includes a **Demo Mock Mode**.
+
+When `DEMO_MOCK_MODE=true` is set in the backend env configuration, the agent intercepts any question and returns a pre-computed response with a **5-second artificial thinking delay** to simulate active agent orchestration.
+
+### Supported Demo Questions:
+1. **"List all departments and their budgets"** (SQL Database query simulation)
+2. **"Show employee salaries and their departments"** (SQL Database query simulation)
+3. **"Plot department salaries compared to their budgets"** (SQL query & Chart rendering simulation)
+4. **"What are the company target budgets for next year?"** (Document RAG search simulation against `demo_target_budgets.txt`)
+5. **"Are there any extra benefits listed in the CSV?"** (CSV parsing & analysis simulation against `demo_extra_benefits.csv`)
+
+Any other question asked will return a helpful guidance list of these demo questions.
+
+---
+
 ## 🧪 Testing & CI/CD
 Run the backend test suite:
 ```bash
